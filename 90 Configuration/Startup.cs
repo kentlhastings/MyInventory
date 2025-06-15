@@ -88,9 +88,8 @@ namespace MyInventory
                           .AllowAnyMethod());
             });
 
-            builder.Services.AddScoped<TradeLogic>();
-            builder.Services.AddScoped<ScanLogic>();
-            builder.Services.AddScoped<AccountLogic>();
+            builder.Services.AddScoped<InventoryLogic>();
+            builder.Services.AddScoped<ApplicationLogic>();
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = null;
