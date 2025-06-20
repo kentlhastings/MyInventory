@@ -17,21 +17,28 @@ namespace MyInventory.Service
             _inventoryLogic = inventoryLogic;
         }
 
-        [HttpGet("create")]
-        public async Task<IActionResult> Create(Record record)
+        [HttpGet]
+        public async Task<IActionResult> GetCollections()
+        {
+            var records = _inventoryLogic.GetTestCollections().Result;
+            return Ok(records);
+        }
+
+        [HttpPost()]
+        public async Task<IActionResult> InsertRecord(Record record)
         {
             var createdRecord = await _inventoryLogic.CreateRecord(record);
             return Ok(createdRecord);
         }
 
-        [HttpGet("update")]
+        [HttpPut()]
         public async Task<IActionResult> Update(Record record)
         {
             var updatedRecord = await _inventoryLogic.UpdateRecord(record);
             return Ok(updatedRecord);
         }
 
-        [HttpGet("delete")]
+        [HttpDelete()]
         public async Task<IActionResult> Delete(Guid recordId)
         {
             var deletedRecordId = await _inventoryLogic.DeleteRecord(recordId);

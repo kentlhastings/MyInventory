@@ -9,6 +9,6 @@ namespace MyInventory.Models
         public string? Name { get; set; }
         public List<Record>? Records { get; set; }
         public string? Details { get; set; }
-        public string? Image { get; set; }
+        public double Value { get; set; }
     }
 }
