@@ -32,31 +32,16 @@
         const selectorElement = $('#dataset-selector');
         const addCollectionButton = $('#add-collection');
         const removeCollectionButton = $('#remove-collection');
+        var currentCollectionId = "";
 
         function makeDataStore(records, collectionId) {
             return new DevExpress.data.CustomStore({
                 key: 'Id',
 
                 load: () => Promise.resolve(records),
-
-                insert: (values) => $.ajax({
-                    url: `${apiBase}/inventory/${collectionId}/records`,
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(values)
-                }),
-
-                update: (key, values) => $.ajax({
-                    url: `${apiBase}/inventory/${collectionId}/records/${key}`,
-                    method: 'PUT',
-                    contentType: 'application/json',
-                    data: JSON.stringify(values)
-                }),
-
-                remove: (key) => $.ajax({
-                    url: `${apiBase}/inventory/${collectionId}/records/${key}`,
-                    method: 'DELETE'
-                })
+                insert: (record) => insertRecord(record),
+                update: (key, record) => updateRecord(record),
+                remove: (key) => deleteRecord(key)
             });
         }
 
@@ -120,12 +105,10 @@
                 displayExpr: 'Name',
                 valueExpr: 'Id',
                 value: collections.length > 0 ? collections[0].Id : null,
-                onCustomItemCreating: function (e) {
-
-                },
                 onValueChanged: e => {
-                    const records = selectorData.find(x => x.Id === e.value)?.Records || [];
-                    gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(records, e.value));
+                    currentCollectionId = e.value;
+                    const records = selectorData.find(x => x.Id === currentCollectionId)?.Records || [];
+                    gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(records, currentCollectionId));
                 }
             });
 
@@ -134,27 +117,21 @@
                 icon: 'plus',
                 type: 'default',
                 stylingMode: 'contained',
-                onClick: function () {
-                    //TODO
-                    //DevExpress.ui.dialog('Enter new collection name:', 'Add Collection')
-                    //    .done(function (newName) {
-                    //        const name = newName?.trim();
-                    //        if (!name) return;
+                onClick: async function () {
+                    try {
 
-                    //        const newCollection = {
-                    //            Id: crypto.randomUUID?.() || Date.now().toString(),
-                    //            Name: name,
-                    //            Records: []
-                    //        };
+                        const newCollection = {
+                            Id: crypto.randomUUID?.() || Date.now().toString(),
+                            Name: "New Collection",
+                            Records: []
+                        };
 
-                    //        collections.push(newCollection);
-                    //        selectorData.push(newCollection);
+                        await insertCollection(newCollection);
+                        handleInsertCollection(newCollection, selectorData, collections);
 
-                    //        selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
-                    //        selectorElement.dxSelectBox('instance').option('value', newCollection.Id);
-
-                    //        gridElement.dxDataGrid('instance').option('dataSource', makeDataStore([], newCollection.Id));
-                    //    });
+                    } catch (error) {
+                        console.error("Error adding collection:", error.responseText);
+                    }
                 }
             });
 
@@ -163,40 +140,116 @@
                 icon: 'trash',
                 type: 'danger',
                 stylingMode: 'contained',
-                onClick: function () {
-                    const currentId = selectorElement.dxSelectBox('instance').option('value');
-                    if (!currentId) return;
+                onClick: async function () {
+                    try {
 
-                    const currentIndex = selectorData.findIndex(c => c.Id === currentId);
-                    if (currentIndex < 0) return;
+                        if (!currentCollectionId) return;
 
-                    const currentName = selectorData[currentIndex].Name;
+                        const currentIndex = selectorData.findIndex(c => c.Id === currentCollectionId);
+                        if (currentIndex < 0) return;
 
-                    DevExpress.ui.dialog.confirm(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete')
-                        .done(function (result) {
-                            if (!result) return;
+                        const currentName = selectorData[currentIndex].Name;
 
-                            // Remove from both arrays
-                            selectorData.splice(currentIndex, 1);
-                            collections = collections.filter(c => c.Id !== currentId);
+                        const dialogResult = await confirmDeleteCollectionAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
+                        if (!dialogResult) return;
 
-                            // Update SelectBox
-                            selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
 
-                            const newSelection = selectorData.length ? selectorData[0].Id : null;
-                            selectorElement.dxSelectBox('instance').option('value', newSelection);
+                        await deleteCollection(currentCollectionId);
+                        handleDeleteCollection(selectorData, currentIndex, collections);
 
-                            const selected = selectorData.find(x => x.Id === newSelection);
-                            gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(selected?.Records ?? [], selected?.Id));
-                        });
+                    } catch (error) {
+                        console.error("Error deleting collection:", error.responseText);
+                    }
                 }
             });
 
             if (collections.length > 0) {
                 const collection = collections[0];
-                gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(collection.Records ?? [], collection.Id));
+                currentCollectionId = collection.Id;
+                gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(collection.Records ?? [], currentCollectionId));
             }
         });
+
+        function confirmDeleteCollectionAsync(message, title) {
+            return new Promise(resolve => {
+                DevExpress.ui.dialog.confirm(message, title).done(result => {
+                    resolve(result);
+                });
+            });
+        }
+
+        function handleDeleteCollection(selectorData, currentIndex, collections) {
+            console.log("Collection Deleted");
+
+            selectorData.splice(currentIndex, 1);
+            collections = collections.filter(c => c.Id !== currentCollectionId);
+
+            selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
+
+            const newSelection = selectorData.length ? selectorData[0].Id : null;
+            selectorElement.dxSelectBox('instance').option('value', newSelection);
+
+            const selected = selectorData.find(x => x.Id === newSelection);
+            currentCollectionId = selected?.Id;
+
+            gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(selected?.Records ?? [], currentCollectionId));
+        }
+
+        function handleInsertCollection(newCollection, selectorData, collections) {
+            console.log("Collection Added");
+
+            collections.push(newCollection);
+            selectorData.push(newCollection);
+
+            currentCollectionId = newCollection.Id;
+
+            selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
+            selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
+
+            gridElement.dxDataGrid('instance').option('dataSource', makeDataStore([], currentCollectionId));
+        }
+
+        function insertRecord(record) {
+            return $.ajax({
+                url: `${apiBase}/inventory/${currentCollectionId}/records/new`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(record)
+            });
+        }
+
+        function updateRecord(record) {
+            return $.ajax({
+                url: `${apiBase}/inventory/${currentCollectionId}/records/update`,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(record)
+            });
+        }
+
+        function deleteRecord(recordId) {
+            return $.ajax({
+                url: `${apiBase}/inventory/${currentCollectionId}/records/delete/${recordId}`,
+                method: 'DELETE'
+            });
+        }
+
+        function insertCollection(collection) {
+            return $.ajax({
+                url: `${apiBase}/inventory/collections/new`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(collection)
+            });
+        }
+
+        function deleteCollection(collectionId) {
+            return $.ajax({
+                url: `${apiBase}/inventory/collections/delete/${collectionId}`,
+                method: 'DELETE',
+                contentType: 'application/json'
+            });
+        }
     </script>
 </body>
 </html>

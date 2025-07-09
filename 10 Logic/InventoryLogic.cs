@@ -99,22 +99,29 @@ namespace MyInventory.Logic
             return new List<Collection> { powerTools, furniture };
         }
 
-        public async Task<Record> CreateRecord(Record record)
+        public async Task<Record> CreateRecord(Guid collectionId, Record record)
         {
-            _applicationLogic.SaveData(null);
             return new Record();
         }
 
-        public async Task<Record> UpdateRecord(Record record)
+        public async Task<Record> UpdateRecord(Guid collectionId, Record record)
         {
-            _applicationLogic.SaveData(null);
             return record;
         }
 
-        public async Task<Guid> DeleteRecord(Guid recordId)
+        public async Task<Guid> DeleteRecord(Guid collectionId, Guid recordId)
         {
-            _applicationLogic.SaveData(null);
             return recordId;
+        }
+
+        public async Task<Collection> CreateCollection(Collection collection)
+        {
+            return new Collection();
+        }
+
+        public async Task<Guid> DeleteCollection(Guid collectionId)
+        {
+            return collectionId;
         }
     }
 }

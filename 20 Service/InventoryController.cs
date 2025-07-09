@@ -24,25 +24,39 @@ namespace MyInventory.Service
             return Ok(records);
         }
 
-        [HttpPost()]
-        public async Task<IActionResult> InsertRecord(Record record)
+        [HttpPost("{collectionId}/records/new")]
+        public async Task<IActionResult> InsertRecord(Guid collectionId, [FromBody] Record record)
         {
-            var createdRecord = await _inventoryLogic.CreateRecord(record);
+            var createdRecord = await _inventoryLogic.CreateRecord(collectionId, record);
             return Ok(createdRecord);
         }
 
-        [HttpPut()]
-        public async Task<IActionResult> Update(Record record)
+        [HttpPut("{collectionId}/records/update")]
+        public async Task<IActionResult> UpdateRecord(Guid collectionId, [FromBody] Record record)
         {
-            var updatedRecord = await _inventoryLogic.UpdateRecord(record);
+            var updatedRecord = await _inventoryLogic.UpdateRecord(collectionId, record);
             return Ok(updatedRecord);
         }
 
-        [HttpDelete()]
-        public async Task<IActionResult> Delete(Guid recordId)
+        [HttpDelete("{collectionId}/records/delete/{recordId}")]
+        public async Task<IActionResult> DeleteRecord(Guid collectionId, Guid recordId)
         {
-            var deletedRecordId = await _inventoryLogic.DeleteRecord(recordId);
+            var deletedRecordId = await _inventoryLogic.DeleteRecord(collectionId, recordId);
             return Ok(deletedRecordId);
+        }
+
+        [HttpPost("collections/new")]
+        public async Task<IActionResult> InsertCollection([FromBody] Collection collection)
+        {
+            var createdCollection = await _inventoryLogic.CreateCollection(collection);
+            return Ok(createdCollection);
+        }
+
+        [HttpDelete("collections/delete/{collectionId}")]
+        public async Task<IActionResult> DeleteCollection(Guid collectionId)
+        {
+            var deletedCollectionId = await _inventoryLogic.DeleteCollection(collectionId);
+            return Ok(deletedCollectionId);
         }
     }
 }
