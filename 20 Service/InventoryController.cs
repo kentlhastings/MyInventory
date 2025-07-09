@@ -52,11 +52,25 @@ namespace MyInventory.Service
             return Ok(createdCollection);
         }
 
+        [HttpPut("collections/update")]
+        public async Task<IActionResult> UpdateCollection([FromBody] Collection collection)
+        {
+            var updatedCollection = await _inventoryLogic.UpdateCollection(collection);
+            return Ok(updatedCollection);
+        }
+
         [HttpDelete("collections/delete/{collectionId}")]
         public async Task<IActionResult> DeleteCollection(Guid collectionId)
         {
             var deletedCollectionId = await _inventoryLogic.DeleteCollection(collectionId);
             return Ok(deletedCollectionId);
+        }
+
+        [HttpPost("error")]
+        public async Task<IActionResult> ReportError([FromBody] Error error)
+        {
+            var reportedError = await _inventoryLogic.ReportError(error);
+            return Ok(reportedError);
         }
     }
 }

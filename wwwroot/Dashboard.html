@@ -24,6 +24,9 @@
         <div id="add-collection"></div>
         <div id="remove-collection"></div>
         <div id="inventory-grid"></div>
+        <div id="new-collection-popup">
+            <div id="new-collection-form"></div>
+        </div>
     </div>
 
     <script>
@@ -32,109 +35,79 @@
         const selectorElement = $('#dataset-selector');
         const addCollectionButton = $('#add-collection');
         const removeCollectionButton = $('#remove-collection');
+        const newCollectionPopup = $('#new-collection-popup');
+        const newCollectionForm = $('#new-collection-form');
+
         var currentCollectionId = "";
+        var collectionPopup = null;
+        var collections = [];
+        var collectionSelectorData = {};
 
-        function makeDataStore(records, collectionId) {
-            return new DevExpress.data.CustomStore({
-                key: 'Id',
-
-                load: () => Promise.resolve(records),
-                insert: (record) => insertRecord(record),
-                update: (key, record) => updateRecord(record),
-                remove: (key) => deleteRecord(key)
+        $.getJSON(`${apiBase}/inventory`)
+            .done(data => initialize(data))
+            .fail((jqXHR, textStatus, errorThrown) => {
+                console.error("Failed to fetch inventory:", textStatus, errorThrown);
+                DevExpress.ui.notify('Error loading inventory data', 'error', 3000);
             });
-        }
 
-        gridElement.dxDataGrid({
-            dataSource: [],
-            keyExpr: 'Id',
-            remoteOperations: false,
-            showBorders: true,
-            repaintChangesOnly: true,
-            columnAutoWidth: true,
-            searchPanel: {
-                visible: true,
-                highlightSearchText: true,
-                highlightCaseSensitive: false
-            },
-            columnChooser: { enabled: true, mode: 'select' },
-            editing: {
-                mode: 'form',
-                allowUpdating: true,
-                allowAdding: true,
-                allowDeleting: true,
-                useIcons: true
-            },
-            columnResizingMode: 'nextColumn',
-            allowColumnResizing: true,
-            columns: [
-                { dataField: 'Id', caption: 'ID', allowEditing: false, visible: false },
-                { dataField: 'Make', caption: 'Make' },
-                { dataField: 'Model', caption: 'Model' },
-                { dataField: 'Year', caption: 'Year', dataType: 'number' },
-                { dataField: 'Description', caption: 'Description', visible: false },
-                { dataField: 'Notes', caption: 'Notes', visible: false },
-                { dataField: 'Images', caption: 'Images', visible: false, allowSearch: false },
-                {
-                    dataField: 'Categories', caption: 'Categories',
-                    calculateCellValue: d => d.Categories?.join(', ') || ''
-                },
-                { dataField: 'PurchaseDate', caption: 'Purchase Date', dataType: 'date' },
-                { dataField: 'Price', caption: 'Price', format: 'currency' },
-                { dataField: 'Value', caption: 'Value', format: 'currency' }
-            ],
+        function initialize(data) {
 
-            paging: { pageSize: 10 },
-            pager: {
-                visible: true,
-                showPageSizeSelector: true,
-                allowedPageSizes: [10, 20, 50, 100, 'all'],
-                showInfo: true,
-                showNavigationButtons: true
-            }
-        });
+            drawDataGrid();
 
-        $.getJSON(`${apiBase}/inventory`).done(collections => {
+            collections = data;
 
-            const selectorData = [
+            collectionSelectorData = [
                 ...collections.map(c => ({ Id: c.Id, Name: c.Name, Records: c.Records }))
             ];
 
+            drawCollectionSelectorElement();
+            drawNewCollectionButton();
+            drawRemoveCollectionButton();
+            drawNewCollectionPopup();
+
+            if (collections.length > 0) {
+                const collection = collections[0];
+                currentCollectionId = collection.Id;
+                gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(collection.Records ?? [], currentCollectionId));
+            }
+        }
+
+        function drawCollectionSelectorElement() {
             selectorElement.dxSelectBox({
-                dataSource: selectorData,
+                dataSource: collectionSelectorData,
                 displayExpr: 'Name',
                 valueExpr: 'Id',
                 value: collections.length > 0 ? collections[0].Id : null,
                 onValueChanged: e => {
                     currentCollectionId = e.value;
-                    const records = selectorData.find(x => x.Id === currentCollectionId)?.Records || [];
-                    gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(records, currentCollectionId));
+                    const records = collectionSelectorData.find(x => x.Id === currentCollectionId)?.Records || [];
+                    gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(records, currentCollectionId));
                 }
             });
+        }
 
+        function drawNewCollectionButton() {
             addCollectionButton.dxButton({
                 text: 'Add Collection',
                 icon: 'plus',
                 type: 'default',
                 stylingMode: 'contained',
-                onClick: async function () {
-                    try {
+                onClick: function () {
 
-                        const newCollection = {
-                            Id: crypto.randomUUID?.() || Date.now().toString(),
-                            Name: "New Collection",
-                            Records: []
-                        };
+                    const newCollectionForm = $('#new-collection-form').dxForm('instance');
+                    if (newCollectionForm) {
+                        newCollectionForm.clear();
 
-                        await insertCollection(newCollection);
-                        handleInsertCollection(newCollection, selectorData, collections);
-
-                    } catch (error) {
-                        console.error("Error adding collection:", error.responseText);
+                        const textBox = newCollectionForm.getEditor('Name');
+                        if (textBox) textBox.option('disabled', false);
                     }
+
+                    collectionPopup.show();
                 }
             });
+        }
 
+        function drawRemoveCollectionButton() {
             removeCollectionButton.dxButton({
                 text: 'Remove Collection',
                 icon: 'trash',
@@ -145,30 +118,155 @@
 
                         if (!currentCollectionId) return;
 
-                        const currentIndex = selectorData.findIndex(c => c.Id === currentCollectionId);
+                        const currentIndex = collectionSelectorData.findIndex(c => c.Id === currentCollectionId);
                         if (currentIndex < 0) return;
 
-                        const currentName = selectorData[currentIndex].Name;
+                        const currentName = collectionSelectorData[currentIndex].Name;
 
                         const dialogResult = await confirmDeleteCollectionAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
                         if (!dialogResult) return;
 
-
-                        await deleteCollection(currentCollectionId);
-                        handleDeleteCollection(selectorData, currentIndex, collections);
+                        await deleteCollection();
+                        handleDeleteCollection(currentIndex);
 
                     } catch (error) {
                         console.error("Error deleting collection:", error.responseText);
                     }
                 }
             });
+        }
 
-            if (collections.length > 0) {
-                const collection = collections[0];
-                currentCollectionId = collection.Id;
-                gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(collection.Records ?? [], currentCollectionId));
-            }
-        });
+        function drawNewCollectionPopup() {
+            collectionPopup = newCollectionPopup.dxPopup({
+                title: 'Create New Collection',
+                width: 400,
+                height: 110,
+                visible: false,
+                dragEnabled: true,
+                showCloseButton: true,
+                showTitle: true,
+                closeOnOutsideClick: true,
+                onShown: function () {
+                    const input = $('#new-collection-form').find('.dx-textbox input').get(0);
+                    if (input) input.focus();
+                },
+                contentTemplate: function (contentElement) {
+                    const formContainer = $('<div id="new-collection-form">').appendTo(contentElement);
+
+                    const formInstance = formContainer.dxForm({
+                        formData: { Name: '' },
+                        items: [
+                            {
+                                dataField: 'Name',
+                                label: { text: 'Collection Name' },
+                                editorType: 'dxTextBox',
+                                isRequired: true,
+                                editorOptions: {
+                                    onKeyDown: async function (e) {
+                                        if (e.event.key !== 'Enter' || e.component.option('disabled')) return;
+                                        e.component.option('disabled', true);
+
+                                        const collectionName = e.component.option('value')?.trim();
+
+                                        if (!collectionName) {
+                                            DevExpress.ui.notify('Please enter a collection name.', 'warning', 2000);
+                                            e.component.option('disabled', false);
+                                            return;
+                                        }
+
+                                        if (collections.some(c => c.Name.toLowerCase() === collectionName.toLowerCase())) {
+                                            DevExpress.ui.notify('Collection name already exists.', 'warning', 2000);
+                                            e.component.option('disabled', false);
+                                            return;
+                                        }
+
+                                        const newCollection = {
+                                            Id: getUUID(),
+                                            Name: collectionName,
+                                            Records: []
+                                        };
+
+                                        try {
+
+                                            await insertCollection(newCollection);
+                                            handleInsertCollection(newCollection);
+                                            collectionPopup.hide();
+
+                                        } catch (error) {
+                                            console.error("Error adding collection: ", error.responseText)
+                                        }
+
+                                        e.component.option('disabled', false);
+                                    }
+                                }
+                            },
+                        ]
+                    }).dxForm('instance');
+                }
+            }).dxPopup('instance');
+        }
+
+        function drawDataGrid() {
+            gridElement.dxDataGrid({
+                dataSource: [],
+                keyExpr: 'Id',
+                remoteOperations: false,
+                showBorders: true,
+                repaintChangesOnly: true,
+                columnAutoWidth: true,
+                searchPanel: {
+                    visible: true,
+                    highlightSearchText: true,
+                    highlightCaseSensitive: false
+                },
+                columnChooser: { enabled: true, mode: 'select' },
+                editing: {
+                    mode: 'form',
+                    allowUpdating: true,
+                    allowAdding: true,
+                    allowDeleting: true,
+                    useIcons: true
+                },
+                columnResizingMode: 'nextColumn',
+                allowColumnResizing: true,
+                columns: [
+                    { dataField: 'Id', caption: 'ID', allowEditing: false, visible: false },
+                    { dataField: 'Make', caption: 'Make' },
+                    { dataField: 'Model', caption: 'Model' },
+                    { dataField: 'Year', caption: 'Year', dataType: 'number' },
+                    { dataField: 'Description', caption: 'Description', visible: false },
+                    { dataField: 'Notes', caption: 'Notes', visible: false },
+                    { dataField: 'Images', caption: 'Images', visible: false, allowSearch: false },
+                    {
+                        dataField: 'Categories', caption: 'Categories',
+                        calculateCellValue: d => d.Categories?.join(', ') || ''
+                    },
+                    { dataField: 'PurchaseDate', caption: 'Purchase Date', dataType: 'date' },
+                    { dataField: 'Price', caption: 'Price', format: 'currency' },
+                    { dataField: 'Value', caption: 'Value', format: 'currency' }
+                ],
+
+                paging: { pageSize: 10 },
+                pager: {
+                    visible: true,
+                    showPageSizeSelector: true,
+                    allowedPageSizes: [10, 20, 50, 100, 'all'],
+                    showInfo: true,
+                    showNavigationButtons: true
+                }
+            });
+        }
+
+        function setGridDataStore(records, collectionId) {
+            return new DevExpress.data.CustomStore({
+                key: 'Id',
+
+                load: () => Promise.resolve(records),
+                insert: (record) => insertRecord(record),
+                update: (key, record) => updateRecord(record),
+                remove: (key) => deleteRecord(key)
+            });
+        }
 
         function confirmDeleteCollectionAsync(message, title) {
             return new Promise(resolve => {
@@ -178,35 +276,35 @@
             });
         }
 
-        function handleDeleteCollection(selectorData, currentIndex, collections) {
+        function handleDeleteCollection(currentIndex) {
             console.log("Collection Deleted");
 
-            selectorData.splice(currentIndex, 1);
+            collectionSelectorData.splice(currentIndex, 1);
             collections = collections.filter(c => c.Id !== currentCollectionId);
 
-            selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
+            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
 
-            const newSelection = selectorData.length ? selectorData[0].Id : null;
+            const newSelection = collectionSelectorData.length ? collectionSelectorData[0].Id : null;
             selectorElement.dxSelectBox('instance').option('value', newSelection);
 
-            const selected = selectorData.find(x => x.Id === newSelection);
+            const selected = collectionSelectorData.find(x => x.Id === newSelection);
             currentCollectionId = selected?.Id;
 
-            gridElement.dxDataGrid('instance').option('dataSource', makeDataStore(selected?.Records ?? [], currentCollectionId));
+            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(selected?.Records ?? [], currentCollectionId));
         }
 
-        function handleInsertCollection(newCollection, selectorData, collections) {
+        function handleInsertCollection(newCollection) {
             console.log("Collection Added");
 
             collections.push(newCollection);
-            selectorData.push(newCollection);
+            collectionSelectorData.push(newCollection);
 
             currentCollectionId = newCollection.Id;
 
-            selectorElement.dxSelectBox('instance').option('dataSource', selectorData);
+            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
             selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
 
-            gridElement.dxDataGrid('instance').option('dataSource', makeDataStore([], currentCollectionId));
+            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore([], currentCollectionId));
         }
 
         function insertRecord(record) {
@@ -234,6 +332,22 @@
             });
         }
 
+        function reportError(details, stackTrace, code) {
+            const error = {
+                Id: getUUID(),
+                Code: code,
+                Details: details,
+                StackTrace: stackTrace
+            };
+
+            return $.ajax({
+                url: `${apiBase}/inventory/error`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(error)
+            });
+        }
+
         function insertCollection(collection) {
             return $.ajax({
                 url: `${apiBase}/inventory/collections/new`,
@@ -243,12 +357,30 @@
             });
         }
 
-        function deleteCollection(collectionId) {
+        function updateCollection(collection) {
             return $.ajax({
-                url: `${apiBase}/inventory/collections/delete/${collectionId}`,
+                url: `${apiBase}/inventory/collections/update/${currentCollectionId}`,
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(collection)
+            });
+        }
+
+        function deleteCollection() {
+            return $.ajax({
+                url: `${apiBase}/inventory/collections/delete/${currentCollectionId}`,
                 method: 'DELETE',
                 contentType: 'application/json'
             });
+        }
+
+        async function handleError(details, stackTrace, code, shouldReport) {
+            //TODO -- not all errors should be reported. Some should just be displayed to user
+            if (shouldReport) await reportError(details, stackTrace, code);
+        }
+
+        function getUUID() {
+            return crypto.randomUUID?.() || Date.now().toString();
         }
     </script>
 </body>

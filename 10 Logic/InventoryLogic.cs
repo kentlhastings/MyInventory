@@ -119,9 +119,19 @@ namespace MyInventory.Logic
             return new Collection();
         }
 
+        public async Task<Collection> UpdateCollection(Collection collection)
+        {
+            return collection;
+        }
+
         public async Task<Guid> DeleteCollection(Guid collectionId)
         {
             return collectionId;
+        }
+
+        public async Task<Error> ReportError(Error error)
+        {
+            return error;
         }
     }
 }
