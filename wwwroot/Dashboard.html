@@ -62,7 +62,6 @@
         var newCollectionPopup = null;
         var editCollectionPopup = null;
         var collections = [];
-        var collectionSelectorData = {};
 
         $.getJSON(`${apiBase}/inventory`)
             .done(data => initialize(data))
@@ -77,10 +76,6 @@
 
             collections = data;
 
-            collectionSelectorData = [
-                ...collections.map(c => ({ Id: c.Id, Name: c.Name, Records: c.Records }))
-            ];
-
             drawCollectionSelectorElement();
             drawNewCollectionPopup();
             drawNewCollectionButton();
@@ -91,20 +86,20 @@
             if (collections.length > 0) {
                 const collection = collections[0];
                 currentCollectionId = collection.Id;
-                gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(collection.Records ?? [], currentCollectionId));
+                reloadGrid(collection.Records ?? [], currentCollectionId);
             }
         }
 
         function drawCollectionSelectorElement() {
             selectorElement.dxSelectBox({
-                dataSource: collectionSelectorData,
+                dataSource: collections,
                 displayExpr: 'Name',
                 valueExpr: 'Id',
                 value: collections.length > 0 ? collections[0].Id : null,
                 onValueChanged: e => {
                     currentCollectionId = e.value;
-                    const records = collectionSelectorData.find(x => x.Id === currentCollectionId)?.Records || [];
-                    gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(records, currentCollectionId));
+                    const records = collections.find(x => x.Id === currentCollectionId)?.Records || [];
+                    reloadGrid(records, currentCollectionId);
                 }
             });
         }
@@ -159,10 +154,10 @@
 
                         if (!currentCollectionId) return;
 
-                        const currentIndex = collectionSelectorData.findIndex(c => c.Id === currentCollectionId);
+                        const currentIndex = collections.findIndex(c => c.Id === currentCollectionId);
                         if (currentIndex < 0) return;
 
-                        const currentName = collectionSelectorData[currentIndex].Name;
+                        const currentName = collections[currentIndex].Name;
 
                         const dialogResult = await confirmDeleteCollectionAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
                         if (!dialogResult) return;
@@ -389,42 +384,40 @@
         }
 
         function handleDeleteCollection(currentIndex) {
-            console.log("Collection Deleted");
 
-            collectionSelectorData.splice(currentIndex, 1);
             collections = collections.filter(c => c.Id !== currentCollectionId);
+            const newSelection = collections.length ? collections[0].Id : null;
 
-            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
+            const selected = collections.find(x => x.Id === newSelection);
+            currentCollectionId = selected?.Id ?? null;
 
-            const newSelection = collectionSelectorData.length ? collectionSelectorData[0].Id : null;
-            selectorElement.dxSelectBox('instance').option('value', newSelection);
+            reloadSelector();
 
-            const selected = collectionSelectorData.find(x => x.Id === newSelection);
-            currentCollectionId = selected?.Id;
-
-            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(selected?.Records ?? [], currentCollectionId));
+            reloadGrid(selected?.Records ?? [], currentCollectionId);
         }
 
         function handleInsertCollection(newCollection) {
 
             collections.push(newCollection);
-            collectionSelectorData.push(newCollection);
 
             currentCollectionId = newCollection.Id;
 
-            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
-            selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
+            reloadSelector();
 
-            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore([], currentCollectionId));
+            reloadGrid([], currentCollectionId);
         }
 
-        function handleUpdateCollection(collection) {
-            collectionSelectorData.forEach(d => {
-                if (d.Id === currentCollectionId) d.Name = collection.Name;
-            });
+        function handleUpdateCollection() {
+            reloadSelector();
+        }
 
-            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
+        function reloadSelector() {
+            selectorElement.dxSelectBox('instance').option('dataSource', collections);
             selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
+        }
+
+        function reloadGrid(records, collectionId) {
+            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(records, collectionId));
         }
 
         function insertRecord(record) {
