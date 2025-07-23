@@ -16,30 +16,51 @@
         #dataset-selector {
             max-width: 260px
         }
+
+        #selector-container {
+            margin-bottom: 20px;
+            display: flex;
+        }
+
+        #dataset-selector {
+            margin-right: 10px;
+        }
+
+        #add-collection {
+            margin-right: 10px;
+        }
+
+        #edit-collection {
+            margin-right: 10px;
+        }
+
+        #remove-collection {
+        }
     </style>
 </head>
 <body>
     <div style="padding:20px">
-        <div id="dataset-selector" style="margin-bottom:20px"></div>
-        <div id="add-collection"></div>
-        <div id="remove-collection"></div>
-        <div id="inventory-grid"></div>
-        <div id="new-collection-popup">
-            <div id="new-collection-form"></div>
+        <div id="selector-container">
+            <div id="dataset-selector"></div>
+            <div id="add-collection"></div>
+            <div id="edit-collection"></div>
+            <div id="remove-collection"></div>
         </div>
+        <div id="inventory-grid"></div>
+        <div id="new-collection-popup"></div>
+        <div id="edit-collection-popup"></div>
     </div>
 
     <script>
         const apiBase = 'http://localhost:5000/api';
         const gridElement = $('#inventory-grid');
         const selectorElement = $('#dataset-selector');
-        const addCollectionButton = $('#add-collection');
-        const removeCollectionButton = $('#remove-collection');
-        const newCollectionPopup = $('#new-collection-popup');
-        const newCollectionForm = $('#new-collection-form');
+        const newCollectionPopupElement = $('#new-collection-popup');
+        const editCollectionPopupElement = $('#edit-collection-popup');
 
         var currentCollectionId = "";
-        var collectionPopup = null;
+        var newCollectionPopup = null;
+        var editCollectionPopup = null;
         var collections = [];
         var collectionSelectorData = {};
 
@@ -61,9 +82,11 @@
             ];
 
             drawCollectionSelectorElement();
-            drawNewCollectionButton();
-            drawRemoveCollectionButton();
             drawNewCollectionPopup();
+            drawNewCollectionButton();
+            drawEditCollectionButton();
+            drawRemoveCollectionButton();
+            drawEditCollectionPopup();
 
             if (collections.length > 0) {
                 const collection = collections[0];
@@ -87,14 +110,13 @@
         }
 
         function drawNewCollectionButton() {
-            addCollectionButton.dxButton({
-                text: 'Add Collection',
+            $('#add-collection').dxButton({
                 icon: 'plus',
-                type: 'default',
+                hint: 'Add Collection',
                 stylingMode: 'contained',
                 onClick: function () {
 
-                    const newCollectionForm = $('#new-collection-form').dxForm('instance');
+                    const newCollectionForm = $('.new-collection-form').dxForm('instance');
                     if (newCollectionForm) {
                         newCollectionForm.clear();
 
@@ -102,16 +124,35 @@
                         if (textBox) textBox.option('disabled', false);
                     }
 
-                    collectionPopup.show();
+                    newCollectionPopup.show();
+                }
+            });
+        }
+
+        function drawEditCollectionButton() {
+            $('#edit-collection').dxButton({
+                icon: 'edit',
+                hint: 'Edit Collection',
+                stylingMode: 'contained',
+                onClick: function () {
+
+                    const editCollectionForm = $('.edit-collection-form').dxForm('instance');
+                    if (editCollectionForm) {
+                        editCollectionForm.clear();
+
+                        const textBox = editCollectionForm.getEditor('Name');
+                        if (textBox) textBox.option('disabled', false);
+                    }
+
+                    editCollectionPopup.show();
                 }
             });
         }
 
         function drawRemoveCollectionButton() {
-            removeCollectionButton.dxButton({
-                text: 'Remove Collection',
+            $('#remove-collection').dxButton({
                 icon: 'trash',
-                type: 'danger',
+                hint: "Remove Collection",
                 stylingMode: 'contained',
                 onClick: async function () {
                     try {
@@ -137,7 +178,7 @@
         }
 
         function drawNewCollectionPopup() {
-            collectionPopup = newCollectionPopup.dxPopup({
+            newCollectionPopup = newCollectionPopupElement.dxPopup({
                 title: 'Create New Collection',
                 width: 400,
                 height: 110,
@@ -151,7 +192,7 @@
                     if (input) input.focus();
                 },
                 contentTemplate: function (contentElement) {
-                    const formContainer = $('<div id="new-collection-form">').appendTo(contentElement);
+                    const formContainer = $('<div class="new-collection-form">').appendTo(contentElement);
 
                     const formInstance = formContainer.dxForm({
                         formData: { Name: '' },
@@ -190,7 +231,78 @@
 
                                             await insertCollection(newCollection);
                                             handleInsertCollection(newCollection);
-                                            collectionPopup.hide();
+                                            newCollectionPopup.hide();
+
+                                        } catch (error) {
+                                            console.error("Error adding collection: ", error.responseText)
+                                        }
+
+                                        e.component.option('disabled', false);
+                                    }
+                                }
+                            },
+                        ]
+                    }).dxForm('instance');
+                }
+            }).dxPopup('instance');
+        }
+
+        function drawEditCollectionPopup() {
+            editCollectionPopup = editCollectionPopupElement.dxPopup({
+                title: 'Edit Collection',
+                width: 400,
+                height: 110,
+                visible: false,
+                dragEnabled: true,
+                showCloseButton: true,
+                showTitle: true,
+                closeOnOutsideClick: true,
+                onShown: function () {
+                    const input = $('#edit-collection-form').find('.dx-textbox input').get(0);
+                    if (input) input.focus();
+                },
+                contentTemplate: async function (contentElement) {
+                    const formContainer = $('<div class="edit-collection-form">').appendTo(contentElement);
+
+                    const currentCollection = collections.find(c => c.Id === currentCollectionId);
+
+                    if (!currentCollection) {
+                        await handleError("No collection is selected for editing", null, null, false);
+                        return $('<div>').text('Please select a collection first.').appendTo(contentElement);
+                    }
+
+                    const formInstance = formContainer.dxForm({
+                        formData: { Name: currentCollection.Name },
+                        items: [
+                            {
+                                dataField: 'Name',
+                                label: { text: 'Collection Name' },
+                                editorType: 'dxTextBox',
+                                isRequired: true,
+                                editorOptions: {
+                                    onKeyDown: async function (e) {
+                                        if (e.event.key !== 'Enter' || e.component.option('disabled')) return;
+                                        e.component.option('disabled', true);
+
+                                        const collectionName = e.component.option('value')?.trim();
+
+                                        if (!collectionName) {
+                                            DevExpress.ui.notify('Please enter a collection name.', 'warning', 2000);
+                                            e.component.option('disabled', false);
+                                            return;
+                                        }
+
+                                        if (collections.some(c => c.Id !== currentCollection.Id && c.Name.toLowerCase() === collectionName.toLowerCase())) {
+                                            DevExpress.ui.notify('Collection name already exists.', 'warning', 2000);
+                                            e.component.option('disabled', false);
+                                            return;
+                                        }
+
+                                        try {
+                                            currentCollection.Name = collectionName;
+                                            await updateCollection(currentCollection);
+                                            handleUpdateCollection(currentCollection);
+                                            editCollectionPopup.hide();
 
                                         } catch (error) {
                                             console.error("Error adding collection: ", error.responseText)
@@ -294,7 +406,6 @@
         }
 
         function handleInsertCollection(newCollection) {
-            console.log("Collection Added");
 
             collections.push(newCollection);
             collectionSelectorData.push(newCollection);
@@ -305,6 +416,15 @@
             selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
 
             gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore([], currentCollectionId));
+        }
+
+        function handleUpdateCollection(collection) {
+            collectionSelectorData.forEach(d => {
+                if (d.Id === currentCollectionId) d.Name = collection.Name;
+            });
+
+            selectorElement.dxSelectBox('instance').option('dataSource', collectionSelectorData);
+            selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
         }
 
         function insertRecord(record) {
@@ -359,7 +479,7 @@
 
         function updateCollection(collection) {
             return $.ajax({
-                url: `${apiBase}/inventory/collections/update/${currentCollectionId}`,
+                url: `${apiBase}/inventory/collections/update`,
                 method: 'PUT',
                 contentType: 'application/json',
                 data: JSON.stringify(collection)
@@ -376,6 +496,7 @@
 
         async function handleError(details, stackTrace, code, shouldReport) {
             //TODO -- not all errors should be reported. Some should just be displayed to user
+            DevExpress.ui.notify(details, 'warning', 2500);
             if (shouldReport) await reportError(details, stackTrace, code);
         }
 
