@@ -40,6 +40,31 @@
         #collection-details {
             margin: 10px;
         }
+
+        .master-detail-container {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .image-gallery-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .image-gallery-controls {
+            display: flex;
+        }
+
+        .add-image-button {
+            margin-right: 10px;
+        }
+
+        .remove-image-button {
+        }
     </style>
 </head>
 <body>
@@ -193,7 +218,7 @@
 
                         const currentName = collections[currentIndex].Name;
 
-                        const dialogResult = await confirmDeleteCollectionAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
+                        const dialogResult = await confirmAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
                         if (!dialogResult) return;
 
                         await deleteCollection();
@@ -375,8 +400,6 @@
                     { dataField: 'Model', caption: 'Model' },
                     { dataField: 'Year', caption: 'Year', dataType: 'number' },
                     { dataField: 'Description', caption: 'Description', visible: false },
-                    { dataField: 'Notes', caption: 'Notes', visible: false },
-                    { dataField: 'Images', caption: 'Images', visible: false, allowSearch: false },
                     {
                         dataField: 'Categories', caption: 'Categories',
                         calculateCellValue: d => d.Categories?.join(', ') || ''
@@ -392,6 +415,79 @@
                     allowedPageSizes: [10, 20, 50, 100, 'all'],
                     showInfo: true,
                     showNavigationButtons: true
+                },
+                masterDetail: {
+                    enabled: true,
+                    template: function (container, options) {
+                        const item = options.data;
+                        const notes = item.Notes || "";
+                        const images = item.Images || [];
+
+                        //Container
+                        const masterContainer = $('<div>').addClass('master-detail-container').appendTo(container);
+
+                        //Notes
+                        $('<div>')
+                            .dxTextArea({
+                                value: notes,
+                                height: 90,
+                                readOnly: false,
+                                inputAttr: { 'aria-label': 'Details' }
+                            })
+                            .appendTo(masterContainer);
+
+                        //Gallery container
+                        const galleryWrapper = $('<div>').addClass('image-gallery-wrapper').appendTo(masterContainer);
+                        const galleryElement = $('<div>').appendTo(galleryWrapper);
+                        const buttonsContainer = $('<div>').addClass('image-gallery-controls').appendTo(galleryWrapper);
+                        const addButtonContainer = $('<div>').addClass('add-image-button').appendTo(buttonsContainer);
+                        const deleteButtonContainer = $('<div>').addClass('remove-image-button').appendTo(buttonsContainer);
+
+                        //Gallery
+                        const galleryInstance = galleryElement.dxGallery({
+                            dataSource: images,
+                            height: 250,
+                            loop: false,
+                            showNavButtons: true,
+                            selectedIndex: 0,
+                            itemTemplate: function (data, index, element) {
+                                $('<img>').attr('src', data).css({
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    borderRadius: '4px'
+                                }).appendTo(element);
+                            }
+                        }).dxGallery('instance');
+
+                        //Add image
+                        addButtonContainer.dxButton({
+                            icon: 'add',
+                            hint: 'Add Image',
+                            onClick: function () {
+                                console.log("Added image!");
+                            }
+                        });
+
+                        //Delete image
+                        deleteButtonContainer.dxButton({
+                            icon: 'trash',
+                            hint: 'Remove Image',
+                            onClick: async function () {
+                                const currentIndex = galleryInstance.option('selectedIndex');
+                                if (images.length === 0) return;
+
+                                const dialogResult = await confirmAsync("Are you sure you want to delete this image?", "Confirm Delete");
+                                if (!dialogResult) return;
+
+                                images.splice(currentIndex, 1);
+                                galleryInstance.option('dataSource', images || []);
+
+                                const newIndex = Math.min(currentIndex, images.length - 1);
+                                galleryInstance.option('selectedIndex', newIndex);
+                            }
+                        });
+                    }
                 }
             });
         }
@@ -407,7 +503,7 @@
             });
         }
 
-        function confirmDeleteCollectionAsync(message, title) {
+        function confirmAsync(message, title) {
             return new Promise(resolve => {
                 DevExpress.ui.dialog.confirm(message, title).done(result => {
                     resolve(result);
@@ -452,7 +548,11 @@
         }
 
         function reloadDetails(details) {
-            detailsElement.dxTextArea('instance').option('value', details);
+            const detailsArea = detailsElement.dxTextArea('instance');
+            detailsArea.option('value', details);
+
+            const readOnly = collections.length === 0;
+            detailsArea.option("readOnly", readOnly);
         }
 
         function reloadGrid(records, collectionId) {
