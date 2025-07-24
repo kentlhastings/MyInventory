@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using MyInventory.Logic;
@@ -71,6 +72,49 @@ namespace MyInventory.Service
         {
             var reportedError = await _inventoryLogic.ReportError(error);
             return Ok(reportedError);
+        }
+
+        [HttpGet("image")]
+        public IActionResult Get([FromQuery] string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path)) return NotFound();
+
+            var mimeType = _inventoryLogic.GetMimeType(path);
+            return PhysicalFile(path, mimeType);
+        }
+
+        [HttpGet("files/get")]
+        public IActionResult GetImage()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select an image",
+                Filter = "Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png",
+                Multiselect = false
+            };
+
+            var result = dialog.ShowDialog();
+            if (result == true)
+            {
+                var selectedPath = dialog.FileName;
+                return Ok(new FileRequest 
+                { 
+                    Path = selectedPath 
+                });
+            }
+
+            return NoContent();
+        }
+
+        [HttpPost("files/open")]
+        public IActionResult Post([FromBody] FileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Path) || !System.IO.File.Exists(request.Path)) return BadRequest("Invalid file path");
+            
+            var args = $"/select,\"{request.Path}\"";
+            Process.Start("explorer.exe", args);
+            
+            return Ok();
         }
     }
 }

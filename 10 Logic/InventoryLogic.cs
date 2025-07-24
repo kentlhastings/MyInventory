@@ -1,6 +1,7 @@
 ﻿using MyInventory.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -32,7 +33,7 @@ namespace MyInventory.Logic
                         Description = "18 V cordless drill",
                         Year = 2021,
                         Notes = "Used for house projects",
-                        Images = new() { "drill1.jpg", "drill2.jpg" },
+                        Images = new() { "C:\\Users\\Kent\\Documents\\Test Images\\sindell.jpg", "C:\\Users\\Kent\\Documents\\Test Images\\jade.jpg" },
                         Categories = new() { "Tools", "Power Tools" },
                         PurchaseDate = new DateTime(2021, 5, 15),
                         Price = 99.99,
@@ -46,7 +47,7 @@ namespace MyInventory.Logic
                         Description = "Self-propelled gas mower",
                         Year = 2020,
                         Notes = "Blades sharpened last summer",
-                        Images = new() { "mower.jpg" },
+                        Images = new() { "C:\\Users\\Kent\\Documents\\Test Images\\scorpion.jpg" },
                         Categories = new() { "Outdoor", "Tools" },
                         PurchaseDate = new DateTime(2020, 4, 10),
                         Price = 599,
@@ -70,7 +71,7 @@ namespace MyInventory.Logic
                         Description = "Dining table w/ 6 chairs",
                         Year = 2019,
                         Notes = "One chair slightly worn",
-                        Images = new() { "table1.jpg" },
+                        Images = new() { "C:\\Users\\Kent\\Documents\\Test Images\\subzero.jpg" },
                         Categories = new() { "Furniture" },
                         PurchaseDate = new DateTime(2019, 11, 2),
                         Price = 450,
@@ -84,7 +85,7 @@ namespace MyInventory.Logic
                         Description = "55\" 4K Smart TV",
                         Year = 2020,
                         Notes = "Mounted in living room",
-                        Images = new() { "tv.jpg" },
+                        Images = new(),
                         Categories = new() { "Electronics" },
                         PurchaseDate = new DateTime(2020, 9, 5),
                         Price = 399.99,
@@ -132,6 +133,20 @@ namespace MyInventory.Logic
         public async Task<Error> ReportError(Error error)
         {
             return error;
+        }
+
+        public string GetMimeType(string filePath)
+        {
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                _ => "application/octet-stream"
+            };
         }
     }
 }

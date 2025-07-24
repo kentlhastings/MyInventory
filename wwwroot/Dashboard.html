@@ -423,6 +423,10 @@
                         const notes = item.Notes || "";
                         const images = item.Images || [];
 
+                        const galleryUrls = images.map(path =>
+                            `local-images?path=${encodeURIComponent(path)}`
+                        );
+
                         //Container
                         const masterContainer = $('<div>').addClass('master-detail-container').appendTo(container);
 
@@ -432,7 +436,11 @@
                                 value: notes,
                                 height: 90,
                                 readOnly: false,
-                                inputAttr: { 'aria-label': 'Details' }
+                                inputAttr: { 'aria-label': 'Details' },
+                                onValueChanged: function (e) {
+                                    //TODO!! -- need to update record
+                                    console.log(e.value);
+                                }
                             })
                             .appendTo(masterContainer);
 
@@ -445,7 +453,7 @@
 
                         //Gallery
                         const galleryInstance = galleryElement.dxGallery({
-                            dataSource: images,
+                            dataSource: galleryUrls,
                             height: 250,
                             loop: false,
                             showNavButtons: true,
@@ -454,8 +462,16 @@
                                 $('<img>').attr('src', data).css({
                                     width: '100%',
                                     height: '100%',
-                                    objectFit: 'cover',
-                                    borderRadius: '4px'
+                                    objectFit: 'contain',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }).on('click', function () {
+                                    const url = new URL(data, window.location.origin);
+                                    const filePath = decodeURIComponent(url.searchParams.get('path'));
+                                    if (filePath) {
+                                        openFile(filePath)
+                                            .fail(() => DevExpress.ui.notify("Failed to open file", "error", 2000));
+                                    }
                                 }).appendTo(element);
                             }
                         }).dxGallery('instance');
@@ -465,7 +481,24 @@
                             icon: 'add',
                             hint: 'Add Image',
                             onClick: function () {
-                                console.log("Added image!");
+                                getFile()
+                                    .done(result => {
+                                        if (result?.Path) {
+                                            options.data.Images.push(result?.Path);
+
+                                            const galleryUrls = options.data.Images.map(p =>
+                                                `local-images?path=${encodeURIComponent(p)}`
+                                            );
+
+                                            //TODO!! -- need to create helper to update the data source on change! Need to update record!
+                                            galleryInstance.option('dataSource', galleryUrls);
+                                            galleryInstance.option('selectedIndex', galleryUrls.length - 1);
+                                        }
+                                        else DevExpress.ui.notify("No file selected", "info", 2000);
+                                    })
+                                    .fail(() => {
+                                        DevExpress.ui.notify("Failed to get new image path", "error", 2000);
+                                    });
                             }
                         });
 
@@ -474,6 +507,8 @@
                             icon: 'trash',
                             hint: 'Remove Image',
                             onClick: async function () {
+
+                                //TODO!! -- need to create helper to update the data source on change!
                                 const currentIndex = galleryInstance.option('selectedIndex');
                                 if (images.length === 0) return;
 
@@ -581,6 +616,24 @@
             return $.ajax({
                 url: `${apiBase}/inventory/${currentCollectionId}/records/delete/${recordId}`,
                 method: 'DELETE'
+            });
+        }
+
+        function getFile() {
+            return $.ajax({
+                url: `${apiBase}/inventory/files/get`,
+                method: 'GET',
+            });
+        }
+
+        function openFile(path) {
+            return $.ajax({
+                url: `${apiBase}/inventory/files/open`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    Path: path
+                })
             });
         }
 
