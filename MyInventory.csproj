@@ -14,7 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="wwwroot\favicon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="wwwroot\Dashboard.html" />
+    <Content Include="wwwroot\favicon.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <title>My Inventory</title>
     <link rel="stylesheet" href="https://cdn3.devexpress.com/jslib/23.2.5/css/dx.dark.compact.css" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn3.devexpress.com/jslib/23.2.5/js/dx.all.js"></script>
     <style>
@@ -35,6 +36,10 @@
 
         #remove-collection {
         }
+
+        #collection-details {
+            margin: 10px;
+        }
     </style>
 </head>
 <body>
@@ -45,6 +50,7 @@
             <div id="edit-collection"></div>
             <div id="remove-collection"></div>
         </div>
+        <div id="collection-details"></div>
         <div id="inventory-grid"></div>
         <div id="new-collection-popup"></div>
         <div id="edit-collection-popup"></div>
@@ -54,8 +60,11 @@
         const apiBase = 'http://localhost:5000/api';
         const gridElement = $('#inventory-grid');
         const selectorElement = $('#dataset-selector');
+        const detailsElement = $('#collection-details')
         const newCollectionPopupElement = $('#new-collection-popup');
         const editCollectionPopupElement = $('#edit-collection-popup');
+
+        let detailsAreUpdating = false;
 
         var currentCollectionId = "";
         var newCollectionPopup = null;
@@ -76,6 +85,7 @@
             collections = data;
 
             drawCollectionSelectorElement();
+            drawCollectionDetailsElement();
             drawNewCollectionPopup();
             drawNewCollectionButton();
             drawEditCollectionButton();
@@ -99,6 +109,31 @@
                     currentCollectionId = e.value;
                     const records = collections.find(x => x.Id === currentCollectionId)?.Records || [];
                     reloadGrid(records, currentCollectionId);
+
+                    detailsAreUpdating = true;
+                    const details = collections.find(c => c.Id === currentCollectionId)?.Details;
+                    reloadDetails(details);
+                    detailsAreUpdating = false;
+                }
+            });
+        }
+
+        function drawCollectionDetailsElement() {
+            detailsElement.dxTextArea({
+                label: "Collection Notes",
+                labelMode: "floating",
+                value: collections.length > 0 ? collections[0].Details : null,
+                height: 90,
+                inputAttr: { 'aria-label': 'Notes' },
+                onValueChanged: async function (e) {
+
+                    if (detailsAreUpdating) return;
+
+                    let collection = collections.find(c => c.Id === currentCollectionId);
+                    if (collection) {
+                        collection.Details = e.value;
+                        await updateCollection(collection);
+                    }
                 }
             });
         }
@@ -180,7 +215,7 @@
                 dragEnabled: true,
                 showCloseButton: true,
                 showTitle: true,
-                closeOnOutsideClick: true,
+                hideOnOutsideClick: true,
                 onShown: function () {
                     const input = $('#new-collection-form').find('.dx-textbox input').get(0);
                     if (input) input.focus();
@@ -250,7 +285,7 @@
                 dragEnabled: true,
                 showCloseButton: true,
                 showTitle: true,
-                closeOnOutsideClick: true,
+                hideOnOutsideClick: true,
                 onShown: function () {
                     const input = $('#edit-collection-form').find('.dx-textbox input').get(0);
                     if (input) input.focus();
@@ -315,7 +350,6 @@
         function drawDataGrid() {
             gridElement.dxDataGrid({
                 dataSource: [],
-                keyExpr: 'Id',
                 remoteOperations: false,
                 showBorders: true,
                 repaintChangesOnly: true,
@@ -412,6 +446,13 @@
         function reloadSelector() {
             selectorElement.dxSelectBox('instance').option('dataSource', collections);
             selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
+
+            const details = collections.find(c => c.Id === currentCollectionId)?.Details ?? "";
+            reloadDetails(details);
+        }
+
+        function reloadDetails(details) {
+            detailsElement.dxTextArea('instance').option('value', details);
         }
 
         function reloadGrid(records, collectionId) {
