@@ -475,10 +475,15 @@
             //Notes
             $('<div>')
                 .dxTextArea({
+                    label: "Record Notes",
+                    labelMode: "floating",
                     value: notes,
                     height: 90,
-                    readOnly: true,
                     inputAttr: { 'aria-label': 'Details' },
+                    onValueChanged: function (e) {
+                        item.Notes = e.value;
+                        updateRecord(item);
+                    }
                 })
                 .appendTo(masterContainer);
 
