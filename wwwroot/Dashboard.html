@@ -411,11 +411,12 @@
                     {
                         dataField: 'Categories',
                         editorType: 'dxTagBox',
-                        editorOptions: {
-                            items: masterCategories,
-                            acceptCustomValue: true,
-                        },
+                        editorOptions: getCategoriesEditorOptions(),
                         allowHeaderFiltering: false,
+                        cellTemplate: function (container, options) {
+                            const categories = Array.isArray(options.value) ? options.value.join(', ') : '';
+                            container.text(categories);
+                        }
                     },
                     { dataField: 'PurchaseDate', caption: 'Purchase Date', dataType: 'date' },
                     { dataField: 'Price', format: 'currency' },
@@ -577,6 +578,13 @@
             });
         }
 
+        function getCategoriesEditorOptions() {
+            return {
+                items: masterCategories,
+                acceptCustomValue: true
+            };
+        }
+
         function getGridDataStore(records, collectionId) {
             return new DevExpress.data.CustomStore({
                 key: 'Id',
@@ -603,6 +611,9 @@
                         result?.Categories?.forEach(c => {
                             if (!masterCategories.includes(c)) masterCategories.push(c);
                         });
+
+                        //Ensures new categories are visible in the Categories column filter
+                        gridElement.dxDataGrid("instance").repaint();
 
                     }).fail(error => console.error(error));
                 },
@@ -679,10 +690,7 @@
             const grid = gridElement.dxDataGrid('instance');
             grid.option('dataSource', getGridDataStore(records, collectionId));
             grid.columnOption("Categories", {
-                editorOptions: {
-                    items: masterCategories,
-                    acceptCustomValue: true
-                }
+                editorOptions: getCategoriesEditorOptions()
             });
         }
 
