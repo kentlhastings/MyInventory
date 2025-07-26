@@ -65,7 +65,7 @@ namespace MyInventory.Logic
                             Description = "Dining table w/ 6 chairs",
                             Year = 2019,
                             Notes = "One chair slightly worn",
-                            Images = new() { "C:\\Users\\Kent\\Documents\\Test Images\\subzero.jpg" },
+                            Images = new() { "C:\\Users\\Kent\\Documents\\Test Images\\subzero.png" },
                             Categories = new() { "Furniture" },
                             PurchaseDate = new DateTime(2019, 11, 2),
                             Price = 450,
