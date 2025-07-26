@@ -99,6 +99,7 @@
         var newCollectionPopup = null;
         var editCollectionPopup = null;
         var collections = [];
+        var masterCategories = [];
 
         $.getJSON(`${getApiBase()}/inventory`)
             .done(data => initialize(data))
@@ -112,6 +113,7 @@
             drawDataGrid();
 
             collections = data;
+            masterCategories = getUniqueCategories();
 
             drawCollectionSelectorElement();
             drawCollectionDetailsElement();
@@ -387,6 +389,8 @@
                     highlightSearchText: true,
                     highlightCaseSensitive: false
                 },
+                filterRow: { visible: true },
+                headerFilter: { visible: true },
                 columnChooser: { enabled: true, mode: 'select' },
                 editing: {
                     mode: 'form',
@@ -398,19 +402,24 @@
                 columnResizingMode: 'nextColumn',
                 allowColumnResizing: true,
                 columns: [
-                    { dataField: 'Id', caption: 'ID', allowEditing: false, visible: false },
+                    { dataField: 'Id', allowEditing: false, visible: false },
                     { dataField: 'Notes', caption: 'Notes', visible: false },
-                    { dataField: 'Make', caption: 'Make' },
-                    { dataField: 'Model', caption: 'Model' },
-                    { dataField: 'Year', caption: 'Year', dataType: 'number' },
-                    { dataField: 'Description', caption: 'Description', visible: false },
+                    { dataField: 'Make' },
+                    { dataField: 'Model' },
+                    { dataField: 'Year', dataType: 'number' },
+                    { dataField: 'Description', visible: false },
                     {
-                        dataField: 'Categories', caption: 'Categories',
-                        calculateCellValue: d => d.Categories?.join(', ') || ''
+                        dataField: 'Categories',
+                        editorType: 'dxTagBox',
+                        editorOptions: {
+                            items: masterCategories,
+                            acceptCustomValue: true,
+                        },
+                        allowHeaderFiltering: false,
                     },
                     { dataField: 'PurchaseDate', caption: 'Purchase Date', dataType: 'date' },
-                    { dataField: 'Price', caption: 'Price', format: 'currency' },
-                    { dataField: 'Value', caption: 'Value', format: 'currency' }
+                    { dataField: 'Price', format: 'currency' },
+                    { dataField: 'Value', format: 'currency' },
                 ],
                 paging: { pageSize: 10 },
                 pager: {
@@ -423,6 +432,29 @@
                 masterDetail: {
                     enabled: true,
                     template: drawGridMasterDetail
+                },
+                onEditorPreparing: function (e) {
+                    if (e.parentType === "filterRow" && e.dataField === "Categories") {
+                        e.editorOptions = {
+                            items: masterCategories,
+                            searchEnabled: true,
+                            placeholder: "Select a category...",
+                            onValueChanged: function (args) {
+                                const selectedValues = args.value;
+                                const gridInstance = gridElement.dxDataGrid("instance");
+
+                                if (!selectedValues || selectedValues.length === 0) {
+                                    gridInstance.clearFilter();
+                                    return;
+                                }
+
+                                gridInstance.filter(function (rowData) {
+                                    if (!Array.isArray(rowData.Categories)) return false;
+                                    return selectedValues.some(v => rowData.Categories.includes(v));
+                                });
+                            }
+                        };
+                    }
                 }
             });
         }
@@ -566,6 +598,12 @@
                     return updateRecord(record).done(result => {
                         const index = records.findIndex(r => r.Id === key);
                         records[index] = result;
+
+                        //Add any new categories
+                        result?.Categories?.forEach(c => {
+                            if (!masterCategories.includes(c)) masterCategories.push(c);
+                        });
+
                     }).fail(error => console.error(error));
                 },
                 remove: (key) => {
@@ -577,6 +615,12 @@
                     return deleteRecord(key)
                 }
             });
+        }
+
+        function getUniqueCategories() {
+            const allRecords = collections.flatMap(c => c.Records);
+            const allCategories = allRecords.flatMap(r => Array.isArray(r.Categories) ? r.Categories : []);
+            return [...new Set(allCategories)].sort((a, b) => a.localeCompare(b));
         }
 
         function confirmAsync(message, title) {
@@ -632,7 +676,14 @@
         }
 
         function reloadGrid(records, collectionId) {
-            gridElement.dxDataGrid('instance').option('dataSource', getGridDataStore(records, collectionId));
+            const grid = gridElement.dxDataGrid('instance');
+            grid.option('dataSource', getGridDataStore(records, collectionId));
+            grid.columnOption("Categories", {
+                editorOptions: {
+                    items: masterCategories,
+                    acceptCustomValue: true
+                }
+            });
         }
 
         function insertRecord(record) {
