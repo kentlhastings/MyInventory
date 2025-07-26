@@ -37,6 +37,11 @@ namespace MyInventory.Views
         private async Task LaunchDashboard()
         {
             await DashboardWebView.EnsureCoreWebView2Async();
+
+            //Set the port in the front end
+            var localHostScript = $"window.localHost = '{GlobalSettings.Application.Port}';";
+            await DashboardWebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(localHostScript);
+
             DashboardWebView.CoreWebView2.Navigate(GlobalSettings.GetDashboardUrl());
         }
 

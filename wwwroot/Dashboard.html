@@ -82,9 +82,9 @@
     </div>
 
     <script>
-        var localHost = 5000;
+        //Web view 2 will set set window.localHost prior to load
         function getApiBase() {
-            return `http://localhost:${localHost}/api`;;
+            return `http://localhost:${window.localHost}/api`;
         }
 
         const gridElement = $('#inventory-grid');
@@ -566,7 +566,7 @@
                     return updateRecord(record).done(result => {
                         const index = records.findIndex(r => r.Id === key);
                         records[index] = result;
-                    });
+                    }).fail(error => console.error(error));
                 },
                 remove: (key) => {
                     const index = records.findIndex(r => r.Id === key);
