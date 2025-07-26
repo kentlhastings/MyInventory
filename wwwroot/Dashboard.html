@@ -82,7 +82,11 @@
     </div>
 
     <script>
-        const apiBase = 'http://localhost:5000/api';
+        var localHost = 5000;
+        function getApiBase() {
+            return `http://localhost:${localHost}/api`;;
+        }
+
         const gridElement = $('#inventory-grid');
         const selectorElement = $('#dataset-selector');
         const detailsElement = $('#collection-details')
@@ -96,7 +100,7 @@
         var editCollectionPopup = null;
         var collections = [];
 
-        $.getJSON(`${apiBase}/inventory`)
+        $.getJSON(`${getApiBase()}/inventory`)
             .done(data => initialize(data))
             .fail((jqXHR, textStatus, errorThrown) => {
                 console.error("Failed to fetch inventory:", textStatus, errorThrown);
@@ -375,7 +379,6 @@
         function drawDataGrid() {
             gridElement.dxDataGrid({
                 dataSource: [],
-                remoteOperations: false,
                 showBorders: true,
                 repaintChangesOnly: true,
                 columnAutoWidth: true,
@@ -396,6 +399,7 @@
                 allowColumnResizing: true,
                 columns: [
                     { dataField: 'Id', caption: 'ID', allowEditing: false, visible: false },
+                    { dataField: 'Notes', caption: 'Notes', visible: false },
                     { dataField: 'Make', caption: 'Make' },
                     { dataField: 'Model', caption: 'Model' },
                     { dataField: 'Year', caption: 'Year', dataType: 'number' },
@@ -418,123 +422,160 @@
                 },
                 masterDetail: {
                     enabled: true,
-                    template: function (container, options) {
-                        const item = options.data;
-                        const notes = item.Notes || "";
-                        const images = item.Images || [];
-
-                        const galleryUrls = images.map(path =>
-                            `local-images?path=${encodeURIComponent(path)}`
-                        );
-
-                        //Container
-                        const masterContainer = $('<div>').addClass('master-detail-container').appendTo(container);
-
-                        //Notes
-                        $('<div>')
-                            .dxTextArea({
-                                value: notes,
-                                height: 90,
-                                readOnly: false,
-                                inputAttr: { 'aria-label': 'Details' },
-                                onValueChanged: function (e) {
-                                    //TODO!! -- need to update record
-                                    console.log(e.value);
-                                }
-                            })
-                            .appendTo(masterContainer);
-
-                        //Gallery container
-                        const galleryWrapper = $('<div>').addClass('image-gallery-wrapper').appendTo(masterContainer);
-                        const galleryElement = $('<div>').appendTo(galleryWrapper);
-                        const buttonsContainer = $('<div>').addClass('image-gallery-controls').appendTo(galleryWrapper);
-                        const addButtonContainer = $('<div>').addClass('add-image-button').appendTo(buttonsContainer);
-                        const deleteButtonContainer = $('<div>').addClass('remove-image-button').appendTo(buttonsContainer);
-
-                        //Gallery
-                        const galleryInstance = galleryElement.dxGallery({
-                            dataSource: galleryUrls,
-                            height: 250,
-                            loop: false,
-                            showNavButtons: true,
-                            selectedIndex: 0,
-                            itemTemplate: function (data, index, element) {
-                                $('<img>').attr('src', data).css({
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'contain',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
-                                }).on('click', function () {
-                                    const url = new URL(data, window.location.origin);
-                                    const filePath = decodeURIComponent(url.searchParams.get('path'));
-                                    if (filePath) {
-                                        openFile(filePath)
-                                            .fail(() => DevExpress.ui.notify("Failed to open file", "error", 2000));
-                                    }
-                                }).appendTo(element);
-                            }
-                        }).dxGallery('instance');
-
-                        //Add image
-                        addButtonContainer.dxButton({
-                            icon: 'add',
-                            hint: 'Add Image',
-                            onClick: function () {
-                                getFile()
-                                    .done(result => {
-                                        if (result?.Path) {
-                                            options.data.Images.push(result?.Path);
-
-                                            const galleryUrls = options.data.Images.map(p =>
-                                                `local-images?path=${encodeURIComponent(p)}`
-                                            );
-
-                                            //TODO!! -- need to create helper to update the data source on change! Need to update record!
-                                            galleryInstance.option('dataSource', galleryUrls);
-                                            galleryInstance.option('selectedIndex', galleryUrls.length - 1);
-                                        }
-                                        else DevExpress.ui.notify("No file selected", "info", 2000);
-                                    })
-                                    .fail(() => {
-                                        DevExpress.ui.notify("Failed to get new image path", "error", 2000);
-                                    });
-                            }
-                        });
-
-                        //Delete image
-                        deleteButtonContainer.dxButton({
-                            icon: 'trash',
-                            hint: 'Remove Image',
-                            onClick: async function () {
-
-                                //TODO!! -- need to create helper to update the data source on change!
-                                const currentIndex = galleryInstance.option('selectedIndex');
-                                if (images.length === 0) return;
-
-                                const dialogResult = await confirmAsync("Are you sure you want to delete this image?", "Confirm Delete");
-                                if (!dialogResult) return;
-
-                                images.splice(currentIndex, 1);
-                                galleryInstance.option('dataSource', images || []);
-
-                                const newIndex = Math.min(currentIndex, images.length - 1);
-                                galleryInstance.option('selectedIndex', newIndex);
-                            }
-                        });
-                    }
+                    template: drawGridMasterDetail
                 }
             });
         }
 
-        function setGridDataStore(records, collectionId) {
+        function drawGridMasterDetail(container, options) {
+            const item = options.data;
+            const notes = item.Notes || "";
+            let images = item.Images || [];
+
+            const galleryUrls = images.map(path =>
+                `local-images?path=${encodeURIComponent(path)}`
+            );
+
+            //Container
+            const masterContainer = $('<div>').addClass('master-detail-container').appendTo(container);
+
+            //Notes
+            $('<div>')
+                .dxTextArea({
+                    value: notes,
+                    height: 90,
+                    readOnly: true,
+                    inputAttr: { 'aria-label': 'Details' },
+                })
+                .appendTo(masterContainer);
+
+            //Gallery container
+            const galleryWrapper = $('<div>').addClass('image-gallery-wrapper').appendTo(masterContainer);
+            const galleryElement = $('<div>').appendTo(galleryWrapper);
+            const buttonsContainer = $('<div>').addClass('image-gallery-controls').appendTo(galleryWrapper);
+            const addButtonContainer = $('<div>').addClass('add-image-button').appendTo(buttonsContainer);
+            const deleteButtonContainer = $('<div>').addClass('remove-image-button').appendTo(buttonsContainer);
+
+            //Gallery
+            const galleryInstance = galleryElement.dxGallery({
+                dataSource: galleryUrls,
+                height: 250,
+                loop: false,
+                showNavButtons: true,
+                selectedIndex: 0,
+                itemTemplate: function (data, index, element) {
+                    $('<img>').attr('src', data).css({
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }).on('click', function () {
+                        const url = new URL(data, window.location.origin);
+                        const filePath = decodeURIComponent(url.searchParams.get('path'));
+                        if (filePath) {
+                            openFile(filePath)
+                                .fail(() => DevExpress.ui.notify("Failed to open file", "error", 2000));
+                        }
+                    }).appendTo(element);
+                }
+            }).dxGallery('instance');
+
+            //Add image
+            addButtonContainer.dxButton({
+                icon: 'add',
+                hint: 'Add Image',
+                onClick: function () {
+                    getImage(item)
+                        .done(result => {
+                            if (result?.Path) {
+                                item.Images.push(result?.Path);
+
+                                const galleryUrls = item.Images.map(p =>
+                                    `local-images?path=${encodeURIComponent(p)}`
+                                );
+
+                                //Update control data source
+                                galleryInstance.option('dataSource', galleryUrls);
+
+                                //Set new control index
+                                galleryInstance.option('selectedIndex', galleryUrls.length - 1);
+                            }
+                            else DevExpress.ui.notify("No file selected", "info", 2000);
+                        })
+                        .fail(() => {
+                            DevExpress.ui.notify("Failed to get new image path", "error", 2000);
+                        });
+                }
+            });
+
+            //Delete image
+            deleteButtonContainer.dxButton({
+                icon: 'trash',
+                hint: 'Remove Image',
+                onClick: async function () {
+
+                    const currentIndex = galleryInstance.option('selectedIndex');
+                    if (images.length === 0) return;
+
+                    const dialogResult = await confirmAsync("Are you sure you want to delete this image?", "Confirm Delete");
+                    if (!dialogResult) return;
+
+                    let tempImages = [...images];
+                    tempImages.splice(currentIndex, 1);
+
+                    item.Images = tempImages;
+
+                    updateRecord(item)
+                        .done(result => {
+                            images = tempImages;
+
+                            const galleryUrls = images.map(path =>
+                                `local-images?path=${encodeURIComponent(path)}`
+                            );
+
+                            //Update control data source
+                            galleryInstance.option('dataSource', galleryUrls || []);
+
+                            //Set new control index
+                            const newIndex = Math.min(currentIndex, galleryUrls.length - 1);
+                            if (newIndex >= 0) galleryInstance.option('selectedIndex', newIndex);
+                        });
+                }
+            });
+        }
+
+        function getGridDataStore(records, collectionId) {
             return new DevExpress.data.CustomStore({
                 key: 'Id',
 
                 load: () => Promise.resolve(records),
-                insert: (record) => insertRecord(record),
-                update: (key, record) => updateRecord(record),
-                remove: (key) => deleteRecord(key)
+                insert: (record) => {
+                    return insertRecord(record).done(result => {
+                        records.push(result);
+                    });
+                },
+                update: (key, values) => {
+                    let record = records.find(r => r.Id === key);
+                    if (!record) return Promise.reject("Record not found.");
+
+                    Object.keys(values).forEach(valueKey => {
+                        record[valueKey] = values[valueKey];
+                    });
+
+                    return updateRecord(record).done(result => {
+                        const index = records.findIndex(r => r.Id === key);
+                        records[index] = result;
+                    });
+                },
+                remove: (key) => {
+                    const index = records.findIndex(r => r.Id === key);
+                    if (index === -1) return Promise.reject("Record not found.");
+
+                    records.splice(index, 1);
+
+                    return deleteRecord(key)
+                }
             });
         }
 
@@ -591,12 +632,12 @@
         }
 
         function reloadGrid(records, collectionId) {
-            gridElement.dxDataGrid('instance').option('dataSource', setGridDataStore(records, collectionId));
+            gridElement.dxDataGrid('instance').option('dataSource', getGridDataStore(records, collectionId));
         }
 
         function insertRecord(record) {
             return $.ajax({
-                url: `${apiBase}/inventory/${currentCollectionId}/records/new`,
+                url: `${getApiBase()}/inventory/${currentCollectionId}/records/new`,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(record)
@@ -605,7 +646,7 @@
 
         function updateRecord(record) {
             return $.ajax({
-                url: `${apiBase}/inventory/${currentCollectionId}/records/update`,
+                url: `${getApiBase()}/inventory/${currentCollectionId}/records/update`,
                 method: 'PUT',
                 contentType: 'application/json',
                 data: JSON.stringify(record)
@@ -614,21 +655,23 @@
 
         function deleteRecord(recordId) {
             return $.ajax({
-                url: `${apiBase}/inventory/${currentCollectionId}/records/delete/${recordId}`,
+                url: `${getApiBase()}/inventory/${currentCollectionId}/records/delete/${recordId}`,
                 method: 'DELETE'
             });
         }
 
-        function getFile() {
+        function getImage(record) {
             return $.ajax({
-                url: `${apiBase}/inventory/files/get`,
-                method: 'GET',
+                url: `${getApiBase()}/inventory/image/${currentCollectionId}`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(record)
             });
         }
 
         function openFile(path) {
             return $.ajax({
-                url: `${apiBase}/inventory/files/open`,
+                url: `${getApiBase()}/inventory/files/open`,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
@@ -646,7 +689,7 @@
             };
 
             return $.ajax({
-                url: `${apiBase}/inventory/error`,
+                url: `${getApiBase()}/inventory/error`,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(error)
@@ -655,7 +698,7 @@
 
         function insertCollection(collection) {
             return $.ajax({
-                url: `${apiBase}/inventory/collections/new`,
+                url: `${getApiBase()}/inventory/collections/new`,
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(collection)
@@ -664,7 +707,7 @@
 
         function updateCollection(collection) {
             return $.ajax({
-                url: `${apiBase}/inventory/collections/update`,
+                url: `${getApiBase()}/inventory/collections/update`,
                 method: 'PUT',
                 contentType: 'application/json',
                 data: JSON.stringify(collection)
@@ -673,7 +716,7 @@
 
         function deleteCollection() {
             return $.ajax({
-                url: `${apiBase}/inventory/collections/delete/${currentCollectionId}`,
+                url: `${getApiBase()}/inventory/collections/delete/${currentCollectionId}`,
                 method: 'DELETE',
                 contentType: 'application/json'
             });

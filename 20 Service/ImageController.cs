@@ -1,16 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using MyInventory.Logic;
+﻿using MyInventory.Logic;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MyInventory.Service
 {
     [Route("local-images")]
     public class LocalImageController : Controller
     {
-        private readonly InventoryLogic _inventoryLogic;
+        private readonly ImageLogic _imageLogic;
 
-        public LocalImageController(InventoryLogic inventoryLogic)
+        public LocalImageController(ImageLogic imageLogic)
         {
-            _inventoryLogic = inventoryLogic;
+            _imageLogic = imageLogic;
         }
 
         [HttpGet]
@@ -18,7 +18,7 @@ namespace MyInventory.Service
         {
             if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path)) return NotFound();
 
-            var mimeType = _inventoryLogic.GetMimeType(path);
+            var mimeType = _imageLogic.GetMimeType(path);
             return PhysicalFile(path, mimeType);
         }
     }

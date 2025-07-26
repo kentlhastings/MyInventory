@@ -90,6 +90,7 @@ namespace MyInventory
 
             builder.Services.AddScoped<InventoryLogic>();
             builder.Services.AddScoped<ApplicationLogic>();
+            builder.Services.AddScoped<ImageLogic>();
             builder.Services.AddControllers().AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = null;

@@ -1,9 +1,10 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MyInventory.Logic;
 using MyInventory.Models;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace MyInventory.Service
 {
@@ -21,7 +22,7 @@ namespace MyInventory.Service
         [HttpGet]
         public async Task<IActionResult> GetCollections()
         {
-            var records = _inventoryLogic.GetTestCollections().Result;
+            var records = await _inventoryLogic.GetCollections();
             return Ok(records);
         }
 
@@ -74,18 +75,22 @@ namespace MyInventory.Service
             return Ok(reportedError);
         }
 
-        [HttpGet("image")]
-        public IActionResult Get([FromQuery] string path)
+        [HttpPost("files/open")]
+        public IActionResult Post([FromBody] FileRequest request)
         {
-            if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path)) return NotFound();
-
-            var mimeType = _inventoryLogic.GetMimeType(path);
-            return PhysicalFile(path, mimeType);
+            if (string.IsNullOrWhiteSpace(request.Path) || !System.IO.File.Exists(request.Path)) return BadRequest("Invalid file path");
+            
+            var args = $"/select,\"{request.Path}\"";
+            Process.Start("explorer.exe", args);
+            
+            return Ok();
         }
 
-        [HttpGet("files/get")]
-        public IActionResult GetImage()
+        [HttpPost("image/{collectionId}")]
+        public async Task<IActionResult> GetImage([FromBody] Record record, Guid collectionId)
         {
+            if (record is null) return BadRequest();
+
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Select an image",
@@ -97,24 +102,19 @@ namespace MyInventory.Service
             if (result == true)
             {
                 var selectedPath = dialog.FileName;
-                return Ok(new FileRequest 
-                { 
-                    Path = selectedPath 
+
+                if (record.Images is null) record.Images = new List<string>();
+                record.Images.Add(selectedPath);
+
+                await _inventoryLogic.UpdateRecord(collectionId, record);
+
+                return Ok(new FileRequest
+                {
+                    Path = selectedPath
                 });
             }
 
             return NoContent();
-        }
-
-        [HttpPost("files/open")]
-        public IActionResult Post([FromBody] FileRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Path) || !System.IO.File.Exists(request.Path)) return BadRequest("Invalid file path");
-            
-            var args = $"/select,\"{request.Path}\"";
-            Process.Start("explorer.exe", args);
-            
-            return Ok();
         }
     }
 }
