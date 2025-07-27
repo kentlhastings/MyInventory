@@ -185,7 +185,10 @@
             valueElement.dxNumberBox({
                 label: "Calculated Value",
                 value: collections.length > 0 ? collections[0].Value : null,
-                format: 'currency',
+                format: {
+                    type: "currency",
+                    precision: 2
+                },
                 readOnly: true
             });
         }
@@ -440,8 +443,24 @@
                         }
                     },
                     { dataField: 'PurchaseDate', caption: 'Purchase Date', dataType: 'date' },
-                    { dataField: 'Price', format: 'currency' },
-                    { dataField: 'Value', format: 'currency' },
+                    {
+                        dataField: 'Price',
+                        format: 'currency',
+                        editorType: 'dxNumberBox',
+                        format: {
+                            type: "currency",
+                            precision: 2
+                        },
+                    },
+                    {
+                        dataField: 'Value',
+                        format: 'currency',
+                        editorType: 'dxNumberBox',
+                        format: {
+                            type: "currency",
+                            precision: 2
+                        },
+                    },
                 ],
                 paging: { pageSize: 10 },
                 pager: {
