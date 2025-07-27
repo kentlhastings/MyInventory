@@ -450,7 +450,7 @@
                         format: {
                             type: "currency",
                             precision: 2
-                        },
+                        }
                     },
                     {
                         dataField: 'Value',
@@ -459,7 +459,7 @@
                         format: {
                             type: "currency",
                             precision: 2
-                        },
+                        }
                     },
                 ],
                 paging: { pageSize: 10 },
@@ -475,6 +475,17 @@
                     template: drawGridMasterDetail
                 },
                 onEditorPreparing: function (e) {
+                    if (e.parentType === "dataRow") {
+                        if (e.dataField === "Price" || e.dataField === "Value") {
+                            e.editorOptions.onInput = function (event) {
+                                const input = event.event?.target;
+                                if (input) {
+                                    input.value = input.value.replace(/,/g, '');
+                                }
+                            };
+                        }
+                    }
+
                     if (e.parentType === "filterRow" && e.dataField === "Categories") {
                         e.editorOptions = {
                             items: masterCategories,
