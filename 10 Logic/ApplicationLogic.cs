@@ -95,9 +95,28 @@ namespace MyInventory.Logic
             };
         }
 
+        public Collection? GetCollection(Guid collectionId)
+        {
+            return _collections.Find(c => c.Id == collectionId);
+        }
+
+        public Record? GetRecord(Guid collectionId, Guid recordId)
+        {
+            var collection = GetCollection(collectionId);
+            if (collection is null) return null;
+            return GetRecord(collection, recordId);
+        }
+
+        public Record? GetRecord(Collection collection, Guid recordId)
+        {
+            if (collection is null) return null;
+            if (collection.Records is null) collection.Records = new List<Record>();
+            return collection.Records.Find(r => r.Id == recordId);
+        }
+
         public async Task UpdateCollectionData(Collection collection)
         {
-            var existingCollection = _collections.Find(c => c.Id == collection.Id);
+            var existingCollection = GetCollection(collection.Id);
             if (existingCollection != null) _collections[_collections.IndexOf(existingCollection)] = collection;
             else _collections.Add(collection);
 
@@ -108,14 +127,12 @@ namespace MyInventory.Logic
         {
             if (record.Id == Guid.Empty) record.Id = Guid.NewGuid();
 
-            var collection = _collections.Find(c => c.Id == collectionId);
+            var collection = GetCollection(collectionId);
             if (collection is null) return;
 
-            if (collection.Records is null) collection.Records = new List<Record>();
-
-            var existingRecord = collection.Records.Find(r => r.Id == record.Id);
-            if (existingRecord != null) collection.Records[collection.Records.IndexOf(existingRecord)] = record;
-            else collection.Records.Add(record);
+            var existingRecord = GetRecord(collection, record.Id);
+            if (existingRecord != null) collection.Records![collection.Records.IndexOf(existingRecord)] = record;
+            else collection.Records!.Add(record);
 
             await SaveData();
         }
@@ -128,7 +145,7 @@ namespace MyInventory.Logic
 
         public async Task RemoveRecord(Guid collectionId, Guid recordId)
         {
-            var collection = _collections.Find(c => c.Id == collectionId);
+            var collection = GetCollection(collectionId);
             if (collection is null || collection.Records is null) return;
 
             var removedCount = collection.Records.RemoveAll(r => r.Id == recordId);

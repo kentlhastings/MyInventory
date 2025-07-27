@@ -37,6 +37,10 @@
         #remove-collection {
         }
 
+        #collection-value {
+            margin: 10px;
+        }
+
         #collection-details {
             margin: 10px;
         }
@@ -76,6 +80,7 @@
             <div id="edit-collection"></div>
             <div id="remove-collection"></div>
         </div>
+        <div id="collection-value"></div>
         <div id="collection-details"></div>
         <div id="inventory-grid"></div>
         <div id="new-collection-popup"></div>
@@ -90,7 +95,8 @@
 
         const gridElement = $('#inventory-grid');
         const selectorElement = $('#dataset-selector');
-        const detailsElement = $('#collection-details')
+        const detailsElement = $('#collection-details');
+        const valueElement = $('#collection-value');
         const newCollectionPopupElement = $('#new-collection-popup');
         const editCollectionPopupElement = $('#edit-collection-popup');
 
@@ -118,6 +124,7 @@
 
             drawCollectionSelectorElement();
             drawCollectionDetailsElement();
+            drawCollectionValueElement();
             drawNewCollectionPopup();
             drawNewCollectionButton();
             drawEditCollectionButton();
@@ -139,13 +146,17 @@
                 value: collections.length > 0 ? collections[0].Id : null,
                 onValueChanged: e => {
                     currentCollectionId = e.value;
-                    const records = collections.find(x => x.Id === currentCollectionId)?.Records || [];
+                    const currentCollection = collections.find(x => x.Id === currentCollectionId);
+
+                    const records = currentCollection?.Records || [];
                     reloadGrid(records, currentCollectionId);
 
                     detailsAreUpdating = true;
                     const details = collections.find(c => c.Id === currentCollectionId)?.Details;
                     reloadDetails(details);
                     detailsAreUpdating = false;
+
+                    reloadValue(currentCollection?.Value);
                 }
             });
         }
@@ -167,6 +178,15 @@
                         await updateCollection(collection);
                     }
                 }
+            });
+        }
+
+        function drawCollectionValueElement() {
+            valueElement.dxNumberBox({
+                label: "Calculated Value",
+                value: collections.length > 0 ? collections[0].Value : null,
+                format: 'currency',
+                readOnly: true
             });
         }
 
@@ -618,6 +638,9 @@
                 insert: (record) => {
                     return insertRecord(record).done(result => {
                         records.push(result);
+
+                        //Update Value
+                        reloadValue();
                     });
                 },
                 update: (key, values) => {
@@ -640,6 +663,9 @@
                         //Ensures new categories are visible in the Categories column filter
                         gridElement.dxDataGrid("instance").repaint();
 
+                        //Update Value
+                        reloadValue();
+
                     }).fail(error => console.error(error));
                 },
                 remove: (key) => {
@@ -648,7 +674,10 @@
 
                     records.splice(index, 1);
 
-                    return deleteRecord(key)
+                    return deleteRecord(key).done(result => {
+                        //Update Value
+                        reloadValue();
+                    });
                 }
             });
         }
@@ -699,8 +728,10 @@
             selectorElement.dxSelectBox('instance').option('dataSource', collections);
             selectorElement.dxSelectBox('instance').option('value', currentCollectionId);
 
-            const details = collections.find(c => c.Id === currentCollectionId)?.Details ?? "";
-            reloadDetails(details);
+            const collection = collections.find(c => c.Id === currentCollectionId);
+
+            reloadDetails(collection?.Details ?? "");
+            reloadValue(collection?.Value);
         }
 
         function reloadDetails(details) {
@@ -709,6 +740,22 @@
 
             const readOnly = collections.length === 0;
             detailsArea.option("readOnly", readOnly);
+        }
+
+        function reloadValue(collectionValue) {
+            const valueNumberBox = valueElement.dxNumberBox('instance');
+            if (collectionValue) {
+                valueNumberBox.option('value', collectionValue);
+                return;
+            }
+
+            getCollectionValue()
+                .done(result => {
+                    valueNumberBox.option('value', result.Value);
+                })
+                .fail(error => {
+                    console.error(error);
+                });
         }
 
         function reloadGrid(records, collectionId) {
@@ -795,6 +842,13 @@
                 method: 'PUT',
                 contentType: 'application/json',
                 data: JSON.stringify(collection)
+            });
+        }
+
+        function getCollectionValue() {
+            return $.ajax({
+                url: `${getApiBase()}/inventory/${currentCollectionId}/value`,
+                method: 'GET',
             });
         }
 

@@ -26,6 +26,14 @@ namespace MyInventory.Service
             return Ok(records);
         }
 
+        [HttpGet("{collectionId}/value")]
+        public IActionResult GetCollectionValue(Guid collectionId)
+        {
+            var collection = _inventoryLogic.GetCollectionValue(collectionId);
+            if (collection != null) return Ok(collection);
+            return NotFound();
+        }
+
         [HttpPost("{collectionId}/records/new")]
         public async Task<IActionResult> InsertRecord(Guid collectionId, [FromBody] Record record)
         {

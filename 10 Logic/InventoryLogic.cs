@@ -18,11 +18,24 @@ namespace MyInventory.Logic
         public async Task<List<Collection>> GetCollections()
         {
             var collectionData = await _applicationLogic.LoadData();
-            collectionData?.Collections?.ForEach(c =>
-            {
-                if (c != null && c.Records != null) c.Value = c.Records.Sum(r => r.Value);
-            });
+            collectionData?.Collections?.ForEach(c => SetCollectionValue(c));
             return collectionData?.Collections ?? new List<Collection>();
+        }
+
+        public Collection? GetCollectionValue(Guid collectionId)
+        {
+            var collection = _applicationLogic.GetCollection(collectionId);
+            if (collection != null) SetCollectionValue(collection);
+            return collection;
+        }
+
+        public void SetCollectionValue(Collection collection)
+        {
+            if (collection != null)
+            {
+                if (collection.Records != null) collection.Value = collection.Records.Sum(r => r.Value);
+                else collection.Value = 0;
+            }
         }
 
         public async Task<Record> CreateRecord(Guid collectionId, Record record)
