@@ -64,6 +64,7 @@
         }
 
         .remove-image-button {
+            margin-right: 10px;
         }
     </style>
 </head>
@@ -493,6 +494,7 @@
             const buttonsContainer = $('<div>').addClass('image-gallery-controls').appendTo(galleryWrapper);
             const addButtonContainer = $('<div>').addClass('add-image-button').appendTo(buttonsContainer);
             const deleteButtonContainer = $('<div>').addClass('remove-image-button').appendTo(buttonsContainer);
+            const openDirectoryContainer = $('<div>').addClass('show-directory-button').appendTo(buttonsContainer);
 
             //Gallery
             const galleryInstance = galleryElement.dxGallery({
@@ -508,13 +510,6 @@
                         objectFit: 'contain',
                         borderRadius: '4px',
                         cursor: 'pointer'
-                    }).on('click', function () {
-                        const url = new URL(data, window.location.origin);
-                        const filePath = decodeURIComponent(url.searchParams.get('path'));
-                        if (filePath) {
-                            openFile(filePath)
-                                .fail(() => DevExpress.ui.notify("Failed to open file", "error", 2000));
-                        }
                     }).appendTo(element);
                 }
             }).dxGallery('instance');
@@ -579,6 +574,31 @@
                             const newIndex = Math.min(currentIndex, galleryUrls.length - 1);
                             if (newIndex >= 0) galleryInstance.option('selectedIndex', newIndex);
                         });
+                }
+            });
+
+            //Show directory
+            openDirectoryContainer.dxButton({
+                icon: 'folder',
+                hint: 'Open Folder',
+                onClick: function () {
+                    const selectedIndex = galleryInstance.option('selectedIndex');
+                    const selectedUrl = galleryInstance.option('dataSource')[selectedIndex];
+
+                    if (!selectedUrl) {
+                        DevExpress.ui.notify("No image selected.", "warning", 2000);
+                        return;
+                    }
+
+                    const url = new URL(selectedUrl, window.location.origin);
+                    const filePath = decodeURIComponent(url.searchParams.get('path'));
+
+                    if (filePath) {
+                        openFile(filePath)
+                            .fail(() => DevExpress.ui.notify("Failed to open file", "error", 2000));
+                    } else {
+                        DevExpress.ui.notify("Invalid file path.", "error", 2000);
+                    }
                 }
             });
         }
