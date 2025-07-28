@@ -175,7 +175,9 @@
                     let collection = collections.find(c => c.Id === currentCollectionId);
                     if (collection) {
                         collection.Details = e.value;
-                        await updateCollection(collection);
+                        await updateCollection(collection).then(result => {
+                            notifySuccessfulSave();
+                        });
                     }
                 }
             });
@@ -251,7 +253,9 @@
                         const dialogResult = await confirmAsync(`Are you sure you want to delete the collection "${currentName}"?`, 'Confirm Delete');
                         if (!dialogResult) return;
 
-                        await deleteCollection();
+                        await deleteCollection().then(result => {
+                            notifyCollectionRemoved();
+                        });
                         handleDeleteCollection(currentIndex);
 
                     } catch (error) {
@@ -314,6 +318,7 @@
                                         try {
 
                                             await insertCollection(newCollection);
+                                            notifyCollectionAdded();
                                             handleInsertCollection(newCollection);
                                             newCollectionPopup.hide();
 
@@ -556,7 +561,9 @@
                     inputAttr: { 'aria-label': 'Details' },
                     onValueChanged: function (e) {
                         item.Notes = e.value;
-                        updateRecord(item);
+                        updateRecord(item).then(result => {
+                            notifySuccessfulSave();
+                        });
                     }
                 })
                 .appendTo(masterContainer);
@@ -595,6 +602,9 @@
                     getImage(item)
                         .done(result => {
                             if (result?.Path) {
+
+                                notifySuccessfulSave();
+
                                 item.Images.push(result?.Path);
 
                                 const galleryUrls = item.Images.map(p =>
@@ -634,6 +644,9 @@
 
                     updateRecord(item)
                         .done(result => {
+
+                            notifySuccessfulSave();
+
                             images = tempImages;
 
                             const galleryUrls = images.map(path =>
@@ -690,6 +703,9 @@
                 load: () => Promise.resolve(records),
                 insert: (record) => {
                     return insertRecord(record).done(result => {
+
+                        notifySuccessfulSave();
+
                         records.push(result);
 
                         //Update Value
@@ -705,6 +721,9 @@
                     });
 
                     return updateRecord(record).done(result => {
+
+                        notifySuccessfulSave();
+
                         const index = records.findIndex(r => r.Id === key);
                         records[index] = result;
 
@@ -728,6 +747,9 @@
                     records.splice(index, 1);
 
                     return deleteRecord(key).done(result => {
+
+                        notifySuccessfulSave();
+
                         //Update Value
                         reloadValue();
                     });
@@ -971,6 +993,18 @@
                     GridState: JSON.stringify(state)
                 })
             });
+        }
+
+        function notifySuccessfulSave() {
+            DevExpress.ui.notify("Save successful", "info");
+        }
+
+        function notifyCollectionRemoved() {
+            DevExpress.ui.notify("Collection has been removed", "info");
+        }
+
+        function notifyCollectionAdded() {
+            DevExpress.ui.notify("Collection has been added", "info");
         }
 
         async function handleError(details, stackTrace, code, shouldReport) {
