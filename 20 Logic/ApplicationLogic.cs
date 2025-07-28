@@ -9,7 +9,40 @@ namespace MyInventory.Logic
     {
         private static List<Collection> _collections = new List<Collection>();
 
+        private static string _gridState = string.Empty;
+
         public async Task<Data> LoadData()
+        {
+            try
+            {
+                var dataFile = GlobalSettings.GetDataFile();
+                if (System.IO.File.Exists(dataFile))
+                {
+                    var dataJson = await System.IO.File.ReadAllTextAsync(dataFile);
+                    if (!string.IsNullOrWhiteSpace(dataJson))
+                    {
+                        var data = Data.Deserialize(dataJson);
+                        _collections = data?.Collections ?? new List<Collection>();
+                        _gridState = data?.GridState ?? string.Empty;
+
+                        System.IO.File.Copy(dataFile, GlobalSettings.GetBackupDataFile(), overwrite: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //Log this error
+            }
+
+            return new Data()
+            {
+                Collections = _collections,
+                GridState = _gridState,
+                Version = GlobalSettings.Application.Version
+            };
+        }
+
+        private void GetTestData()
         {
             _collections = new List<Collection>()
             {
@@ -88,11 +121,6 @@ namespace MyInventory.Logic
                     }
                 }
             };
-            return new Data()
-            {
-                Collections = _collections,
-                Version = 1
-            };
         }
 
         public Collection? GetCollection(Guid collectionId)
@@ -153,8 +181,40 @@ namespace MyInventory.Logic
             await SaveData();
         }
 
+        public Data GetGridState()
+        {
+            return new Data()
+            {
+                GridState = _gridState ?? string.Empty
+            };
+        }
+
+        public async Task SaveGridState(string gridState)
+        {
+            _gridState = gridState;
+            await SaveData();
+        }
+
         public async Task<bool> SaveData()
         {
+            try
+            {
+                var data = new Data()
+                {
+                    Collections = _collections ?? new List<Collection>(),
+                    GridState = _gridState ?? string.Empty,
+                    Version = GlobalSettings.Application.Version
+                };
+
+                var json = Data.Serialize(data);
+                await System.IO.File.WriteAllTextAsync(GlobalSettings.GetDataFile(), json);
+            }
+            catch (Exception ex)
+            {
+                //Log this exception
+                return false;
+            }
+
             return true;
         }
     }

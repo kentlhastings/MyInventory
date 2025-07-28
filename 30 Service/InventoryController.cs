@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using MyInventory.Logic;
+﻿using MyInventory.Logic;
 using MyInventory.Models;
+using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,8 +22,8 @@ namespace MyInventory.Service
         [HttpGet]
         public async Task<IActionResult> GetCollections()
         {
-            var records = await _inventoryLogic.GetCollections();
-            return Ok(records);
+            var collectionData = await _inventoryLogic.GetCollections();
+            return Ok(collectionData);
         }
 
         [HttpGet("{collectionId}/value")]
@@ -123,6 +123,23 @@ namespace MyInventory.Service
             }
 
             return NoContent();
+        }
+
+        [HttpGet("state")]
+        public IActionResult Get()
+        {
+            var data = _inventoryLogic.GetGridState();
+            return Ok(data);
+        }
+
+        [HttpPost("state")]
+        public async Task<IActionResult> Post([FromBody] Data data)
+        {
+            if (data is null) return BadRequest("Invalid data");
+
+            await _inventoryLogic.SaveGridState(data.GridState ?? string.Empty);
+
+            return Ok();
         }
     }
 }

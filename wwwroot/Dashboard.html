@@ -117,11 +117,10 @@
 
         function initialize(data) {
 
-            drawDataGrid();
-
-            collections = data;
+            collections = data.Collections;
             masterCategories = getUniqueCategories();
 
+            drawDataGrid();
             drawCollectionSelectorElement();
             drawCollectionDetailsElement();
             drawCollectionValueElement();
@@ -136,6 +135,7 @@
                 currentCollectionId = collection.Id;
                 reloadGrid(collection.Records ?? [], currentCollectionId);
             }
+            else disableGrid();
         }
 
         function drawCollectionSelectorElement() {
@@ -432,6 +432,7 @@
                     { dataField: 'Model' },
                     { dataField: 'Year', dataType: 'number' },
                     { dataField: 'Description', visible: false },
+                    { dataField: 'SerialNumber', caption: 'Serial Number' },
                     {
                         dataField: 'Categories',
                         editorType: 'dxTagBox',
@@ -469,6 +470,28 @@
                     allowedPageSizes: [10, 20, 50, 100, 'all'],
                     showInfo: true,
                     showNavigationButtons: true
+                },
+                stateStoring: {
+                    enabled: true,
+                    type: "custom",
+                    savingTimeout: 0,
+                    customLoad: function () {
+                        return getGridState()
+                            .then(result => {
+                                try {
+                                    const state = result?.GridState ?? null;
+                                    if (state) return JSON.parse(state);
+                                    console.error("Grid state was invalid");
+                                } catch (e) {
+                                    console.error("Failed to parse grid state: ", e);
+                                    return null;
+                                }
+                            })
+                            .fail(error => console.error(error));
+                    },
+                    customSave: function (state) {
+                        return updateGridState(state).fail(error => console.error(error));
+                    }
                 },
                 masterDetail: {
                     enabled: true,
@@ -712,6 +735,14 @@
             });
         }
 
+        function disableGrid() {
+            gridElement.dxDataGrid("instance").option("disabled", true);
+        }
+
+        function enableGrid() {
+            gridElement.dxDataGrid("instance").option("disabled", false);
+        }
+
         function getUniqueCategories() {
             const allRecords = collections.flatMap(c => c.Records);
             const allCategories = allRecords.flatMap(r => Array.isArray(r.Categories) ? r.Categories : []);
@@ -735,7 +766,7 @@
             currentCollectionId = selected?.Id ?? null;
 
             reloadSelector();
-
+            reloadValue();
             reloadGrid(selected?.Records ?? [], currentCollectionId);
         }
 
@@ -785,6 +816,7 @@
                 })
                 .fail(error => {
                     console.error(error);
+                    valueNumberBox.option('value', null);
                 });
         }
 
@@ -794,9 +826,17 @@
             grid.columnOption("Categories", {
                 editorOptions: getCategoriesEditorOptions()
             });
+
+            if (collections.length === 0) disableGrid();
+            else enableGrid();
         }
 
         function insertRecord(record) {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot add record.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/${currentCollectionId}/records/new`,
                 method: 'POST',
@@ -806,6 +846,11 @@
         }
 
         function updateRecord(record) {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot update record.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/${currentCollectionId}/records/update`,
                 method: 'PUT',
@@ -815,6 +860,11 @@
         }
 
         function deleteRecord(recordId) {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot remove record.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/${currentCollectionId}/records/delete/${recordId}`,
                 method: 'DELETE'
@@ -822,6 +872,11 @@
         }
 
         function getImage(record) {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot add image.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/image/${currentCollectionId}`,
                 method: 'POST',
@@ -876,6 +931,11 @@
         }
 
         function getCollectionValue() {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot get value.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/${currentCollectionId}/value`,
                 method: 'GET',
@@ -883,10 +943,33 @@
         }
 
         function deleteCollection() {
+            if (!currentCollectionId) {
+                console.error("No collection selected — cannot remove collection.");
+                return $.Deferred().reject("No collection selected").promise();
+            }
+
             return $.ajax({
                 url: `${getApiBase()}/inventory/collections/delete/${currentCollectionId}`,
                 method: 'DELETE',
                 contentType: 'application/json'
+            });
+        }
+
+        function getGridState() {
+            return $.ajax({
+                url: `${getApiBase()}/inventory/state`,
+                method: 'GET'
+            });
+        }
+
+        function updateGridState(state) {
+            return $.ajax({
+                url: `${getApiBase()}/inventory/state`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    GridState: JSON.stringify(state)
+                })
             });
         }
 

@@ -1,6 +1,5 @@
 ﻿using MyInventory.Models;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -15,11 +14,11 @@ namespace MyInventory.Logic
             _applicationLogic = applicationLogic;
         }
 
-        public async Task<List<Collection>> GetCollections()
+        public async Task<Data?> GetCollections()
         {
             var collectionData = await _applicationLogic.LoadData();
             collectionData?.Collections?.ForEach(c => SetCollectionValue(c));
-            return collectionData?.Collections ?? new List<Collection>();
+            return collectionData;
         }
 
         public Collection? GetCollectionValue(Guid collectionId)
@@ -72,6 +71,16 @@ namespace MyInventory.Logic
         {
             await _applicationLogic.RemoveCollection(collectionId);
             return collectionId;
+        }
+
+        public Data GetGridState()
+        {
+            return _applicationLogic.GetGridState();
+        }
+
+        public async Task SaveGridState(string gridState)
+        {
+            await _applicationLogic.SaveGridState(gridState);
         }
 
         public async Task<Error> ReportError(Error error)

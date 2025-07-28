@@ -1,11 +1,11 @@
-﻿using System;
+﻿using MyInventory.Logic;
+using System;
 using System.Threading.Tasks;
 using Serilog;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Hosting;
-using MyInventory.Logic;
 
 namespace MyInventory
 {

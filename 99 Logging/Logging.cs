@@ -8,8 +8,6 @@ namespace MyInventory
     {
         public static void InitializeLogger()
         {
-            System.IO.Directory.CreateDirectory(GlobalSettings.GetLogDirectory());
-
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .WriteTo.File(GlobalSettings.GetLogFile(), rollingInterval: RollingInterval.Infinite, shared: true, fileSizeLimitBytes: null, rollOnFileSizeLimit: false )
