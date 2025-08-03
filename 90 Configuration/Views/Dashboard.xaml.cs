@@ -1,10 +1,12 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.Web.WebView2.Core;
+using Serilog;
+using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.ComponentModel;
-using Serilog;
-using Microsoft.AspNetCore.Builder;
 
 namespace MyInventory.Views
 {
@@ -36,6 +38,19 @@ namespace MyInventory.Views
 
         private async Task LaunchDashboard()
         {
+            var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                MessageBox.Show("The Microsoft Edge WebView2 Runtime is required. Installing now...");
+                var installProcess = Process.Start("WebView2Setup.exe", "/silent /install");
+                if (installProcess != null) await installProcess.WaitForExitAsync();
+
+                MessageBox.Show("WebView2 Runtime has been installed. Please restart the application.");
+
+                Shutdown();
+                return;
+            }
+
             await DashboardWebView.EnsureCoreWebView2Async();
 
             //Set the port in the front end
@@ -68,6 +83,11 @@ namespace MyInventory.Views
 
             if (_webServer is not null) await Startup.Shutdown(_webServer);
 
+            Shutdown();
+        }
+
+        private void Shutdown()
+        {
             Application.Current.Shutdown();
             Environment.Exit(0);
         }
